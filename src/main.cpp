@@ -3,74 +3,8 @@
 #include <WebServer.h>
 #include <ArduinoJson.h>
 #include "NMEAEngine.h"
-
-static const int GNSS_RX = 16;
-static const int GNSS_TX = 17;
-static const int GPS_OUT_TX = 18;
-static const uint32_t GNSS_BAUD = 9600;
-static const uint32_t GPS_OUT_BAUD = 9600;
-static const uint16_t TCP_PORT = 10110;
-
-HardwareSerial GNSS(1);
-HardwareSerial GPSOut(2);
-WiFiServer nmeaServer(TCP_PORT);
-WebServer web(80);
-NMEAEngine nmea;
-
-unsigned long sentenceCount = 0;
-unsigned long invalidCount = 0;
-
-String page() {
-  return R"HTML(<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>NavIC GPS Bridge</title><style>
-  body{margin:0;background:#0b1020;color:#e8eefc;font:15px system-ui,sans-serif}header{padding:18px 22px;background:#111a33;display:flex;justify-content:space-between;align-items:center}.live{color:#54e38e}.wrap{max-width:1100px;margin:auto;padding:18px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.card{background:#141f3d;border:1px solid #26365f;border-radius:16px;padding:18px}.label{color:#91a4d4;font-size:12px;text-transform:uppercase}.value{font-size:26px;font-weight:700;margin-top:7px}.coords{font-size:18px;word-break:break-all}.ok{color:#54e38e}.bad{color:#ff7185}pre{white-space:pre-wrap;max-height:260px;overflow:auto;background:#090e1c;padding:14px;border-radius:12px}@media(max-width:600px){header{padding:14px}.wrap{padding:12px}.value{font-size:22px}}</style></head><body><header><b>🛰 NavIC GPS Bridge</b><span id="status" class="live">● LIVE</span></header><main class="wrap"><div class="grid"><section class="card"><div class="label">Fix</div><div id="fix" class="value">Waiting…</div></section><section class="card"><div class="label">Satellites</div><div id="sat" class="value">—</div></section><section class="card"><div class="label">Speed</div><div id="speed" class="value">—</div></section><section class="card"><div class="label">HDOP</div><div id="hdop" class="value">—</div></section><section class="card"><div class="label">Coordinates</div><div id="coords" class="value coords">—</div></section><section class="card"><div class="label">Altitude / Course</div><div id="nav" class="value">—</div></section></div><section class="card" style="margin-top:14px"><div class="label">Latest NMEA</div><pre id="nmea">Waiting for receiver data…</pre></section></main><script>async function u(){try{let r=await fetch('/api/live'),d=await r.json();fix.textContent=d.fix?'3D / VALID FIX':'NO FIX';fix.className='value '+(d.fix?'ok':'bad');sat.textContent=d.satellites??'—';speed.textContent=(d.speed_kmh||0).toFixed(1)+' km/h';hdop.textContent=d.hdop||'—';coords.textContent=d.latitude.toFixed(6)+', '+d.longitude.toFixed(6);nav.textContent=(d.altitude||0).toFixed(1)+' m / '+(d.course||0).toFixed(0)+'°';nmea.textContent=d.last_nmea||'Waiting…';status.textContent='● LIVE '+d.sentences+' packets'}catch(e){status.textContent='● DISCONNECTED';status.className='bad'}}setInterval(u,500);u();</script></body></html>)HTML";
-}
-
-void handleLive() {
-  const GnssData &d = nmea.data();
-  JsonDocument doc;
-  doc["fix"] = d.fix;
-  doc["valid"] = d.valid;
-  doc["fix_quality"] = d.fixQuality;
-  doc["latitude"] = d.latitude;
-  doc["longitude"] = d.longitude;
-  doc["altitude"] = d.altitude;
-  doc["speed_kmh"] = d.speedKmh;
-  doc["course"] = d.course;
-  doc["satellites"] = d.satellites;
-  doc["hdop"] = d.hdop;
-  doc["utc_time"] = d.utcTime;
-  doc["utc_date"] = d.utcDate;
-  doc["last_nmea"] = d.lastSentence;
-  doc["sentences"] = sentenceCount;
-  doc["invalid"] = invalidCount;
-  String body; serializeJson(doc, body);
-  web.send(200, "application/json", body);
-}
-
-void setup() {
-  Serial.begin(115200);
-  GNSS.begin(GNSS_BAUD, SERIAL_8N1, GNSS_RX, GNSS_TX);
-  GPSOut.begin(GPS_OUT_BAUD, SERIAL_8N1, -1, GPS_OUT_TX);
-  WiFi.mode(WIFI_AP);
-  WiFi.softAP("NavIC-GPS-Bridge", "navicgps");
-  nmeaServer.begin();
-  web.on("/", HTTP_GET, [](){ web.send(200, "text/html", page()); });
-  web.on("/api/live", HTTP_GET, handleLive);
-  web.begin();
-  Serial.println("NavIC GPS Bridge ready");
-}
-
-void loop() {
-  web.handleClient();
-  while (GNSS.available()) {
-    String line = GNSS.readStringUntil('\n'); line.trim();
-    if (!line.length()) continue;
-    if (!nmea.process(line)) { invalidCount++; continue; }
-    sentenceCount++;
-    String output = nmea.gpsCompatible(line);
-    GPSOut.println(output);
-    Serial.println(output);
-    WiFiClient client = nmeaServer.available();
-    if (client) client.println(output);
-  }
-}
+HardwareSerial GNSS(1),GPSOut(2);WebServer web(80);WiFiServer tcp(10110);WiFiClient clients[4];NMEAEngine nmea;unsigned long packets=0,invalid=0;
+String page(){return R"(<html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;font-family:system-ui;background:#08111f;color:#eaf2ff}.top{padding:18px;background:#0d1930;display:flex;justify-content:space-between}.wrap{max-width:1100px;margin:auto;padding:18px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.card{background:#12223e;border:1px solid #28456f;border-radius:16px;padding:16px}.label{font-size:11px;color:#9bb0da;text-transform:uppercase}.value{font-size:24px;font-weight:bold;margin-top:6px}.ok{color:#62e6a3}.bad{color:#ff7891}.sats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.sat{background:#0c1930;padding:12px;border-radius:12px}.bar{height:6px;background:#263e66;border-radius:5px}.fill{height:100%;background:#64b5ff;border-radius:5px}@media(max-width:600px){.wrap{padding:12px}}</style></head><body><div class=top><b>🛰 NavIC GPS Bridge</b><span id=live>● CONNECTING</span></div><main class=wrap><div class=grid><div class=card><div class=label>Position</div><div id=pos class=value>Waiting…</div></div><div class=card><div class=label>Fix</div><div id=fix class=value>—</div></div><div class=card><div class=label>Satellites Used</div><div id=used class=value>—</div></div><div class=card><div class=label>Speed</div><div id=speed class=value>—</div></div><div class=card><div class=label>Altitude</div><div id=alt class=value>—</div></div><div class=card><div class=label>HDOP</div><div id=hdop class=value>—</div></div></div><h3>Satellites in View</h3><div id=sats class=sats></div><h3>Latest NMEA</h3><div class=card><pre id=raw></pre></div></main><script>async function u(){try{let d=await(await fetch('/api/live')).json();live.textContent='● LIVE · '+d.packets;live.className='ok';fix.textContent=d.fix?'VALID FIX':'NO FIX';fix.className=d.fix?'value ok':'value bad';pos.textContent=d.latitude.toFixed(6)+', '+d.longitude.toFixed(6);used.textContent=d.satellites;speed.textContent=d.speed_kmh.toFixed(1)+' km/h';alt.textContent=d.altitude.toFixed(1)+' m';hdop.textContent=d.hdop||'—';raw.textContent=d.last_nmea;sats.innerHTML=d.satellite_view.map(s=>'<div class=sat><b>'+s.constellation+' '+s.prn+'</b><br>'+s.snr+' dB-Hz<div class=bar><div class=fill style="width:'+Math.min(100,s.snr*2)+'%"></div></div></div>').join('')}catch(e){live.textContent='● DISCONNECTED';live.className='bad'}}setInterval(u,500);u()</script></body></html>)";}
+void api(){auto&d=nmea.data();JsonDocument j;j["fix"]=d.fix;j["latitude"]=d.latitude;j["longitude"]=d.longitude;j["altitude"]=d.altitude;j["speed_kmh"]=d.speedKmh;j["satellites"]=d.satellites;j["hdop"]=d.hdop;j["last_nmea"]=d.lastSentence;j["packets"]=packets;auto a=j["satellite_view"].to<JsonArray>();for(int i=0;i<nmea.satelliteCount();i++){auto&s=nmea.satellites()[i];auto o=a.add<JsonObject>();o["constellation"]=s.constellation;o["prn"]=s.prn;o["snr"]=s.snr;}String b;serializeJson(j,b);web.send(200,"application/json",b);}
+void setup(){Serial.begin(115200);GNSS.begin(9600,SERIAL_8N1,16,17);GPSOut.begin(9600,SERIAL_8N1,-1,18);WiFi.mode(WIFI_AP);WiFi.softAP("NavIC-GPS-Bridge","navicgps");tcp.begin();web.on("/",[]{web.send(200,"text/html",page());});web.on("/api/live",api);web.begin();}
+void loop(){web.handleClient();WiFiClient incoming=tcp.available();if(incoming)for(auto&c:clients)if(!c||!c.connected()){c=incoming;break;}while(GNSS.available()){String l=GNSS.readStringUntil('\n');l.trim();if(!l.length())continue;if(!nmea.process(l)){invalid++;continue;}packets++;String o=nmea.gpsCompatible(l);GPSOut.println(o);for(auto&c:clients)if(c&&c.connected())c.println(o);}}
