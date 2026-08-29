@@ -10,6 +10,9 @@ bool SettingsManager::begin() {
   config.staEnabled = prefs.getBool("staEnabled", false);
   config.staSsid = prefs.getString("staSsid", "");
   config.staPassword = prefs.getString("staPass", "");
+  config.webAuthEnabled = prefs.getBool("webAuth", false);
+  config.webUsername = prefs.getString("webUser", "admin");
+  config.webPassword = prefs.getString("webPass", "");
   return true;
 }
 
@@ -23,6 +26,9 @@ bool SettingsManager::save(const BridgeConfig &next) {
   prefs.putBool("staEnabled", config.staEnabled);
   prefs.putString("staSsid", config.staSsid);
   prefs.putString("staPass", config.staPassword);
+  prefs.putBool("webAuth", config.webAuthEnabled);
+  prefs.putString("webUser", config.webUsername);
+  prefs.putString("webPass", config.webPassword);
   return true;
 }
 
