@@ -11,6 +11,9 @@ struct BridgeConfig {
   bool staEnabled = false;
   String staSsid;
   String staPassword;
+  bool webAuthEnabled = false;
+  String webUsername = "admin";
+  String webPassword;
 };
 
 class SettingsManager {
