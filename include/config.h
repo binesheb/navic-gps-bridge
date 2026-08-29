@@ -1,0 +1,3 @@
+#pragma once
+#define NAVIC_GPS_BRIDGE_VERSION "0.1.0"
+#define DEFAULT_NMEA_PORT 10110
