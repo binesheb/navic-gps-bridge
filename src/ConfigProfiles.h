@@ -7,5 +7,5 @@ enum class OutputProfile { GenericGPS, LegacyGPS, Marine, Automotive, FlightCont
 class ConfigProfiles {
  public:
   static String name(OutputProfile profile);
-  static bool apply(const String &name, DeviceConfig &config);
+  static bool apply(const String &name, BridgeConfig &config);
 };
