@@ -1,3 +1,17 @@
 #include "EventEngine.h"
-void EventEngine::emit(AlertType type,unsigned long now,const String &message){event={type,now,message};eventCount++;}
-bool EventEngine::update(const GnssData &d,bool fresh,unsigned long now){if(!initialized){initialized=true;previousFix=d.fix;return false;}if(previousFix!=d.fix){previousFix=d.fix;emit(d.fix?AlertType::FixAcquired:AlertType::FixLost,now,d.fix?"GNSS fix acquired":"GNSS fix lost");return true;}if(fresh&&d.fix&&d.hdop>5.0&&!hdopAlert){hdopAlert=true;emit(AlertType::HighHdop,now,"High HDOP: "+String(d.hdop,2));return true;}if(d.hdop<=5.0)hdopAlert=false;if(fresh&&d.satellites>0&&d.satellites<4&&!satelliteAlert){satelliteAlert=true;emit(AlertType::LowSatellites,now,"Low satellite count: "+String(d.satellites));return true;}if(d.satellites>=4)satelliteAlert=false;return false;}
+
+void EventEngine::emit(AlertType type,unsigned long now,const String &message){
+  event={type,now,message};
+  eventCount++;
+  log.add(event);
+}
+
+bool EventEngine::update(const GnssData &d,bool fresh,unsigned long now){
+  if(!initialized){initialized=true;previousFix=d.fix;return false;}
+  if(previousFix!=d.fix){previousFix=d.fix;emit(d.fix?AlertType::FixAcquired:AlertType::FixLost,now,d.fix?"GNSS fix acquired":"GNSS fix lost");return true;}
+  if(fresh&&d.fix&&d.hdop>5.0&&!hdopAlert){hdopAlert=true;emit(AlertType::HighHdop,now,"High HDOP: "+String(d.hdop,2));return true;}
+  if(d.hdop<=5.0)hdopAlert=false;
+  if(fresh&&d.satellites>0&&d.satellites<4&&!satelliteAlert){satelliteAlert=true;emit(AlertType::LowSatellites,now,"Low satellite count: "+String(d.satellites));return true;}
+  if(d.satellites>=4)satelliteAlert=false;
+  return false;
+}
