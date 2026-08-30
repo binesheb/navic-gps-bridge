@@ -1,6 +1,8 @@
 #pragma once
 #include <Arduino.h>
-#include "EventEngine.h"
+
+enum class AlertType : int;
+struct AlertEvent;
 
 struct LoggedEvent {
   unsigned long timestamp;
