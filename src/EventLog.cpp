@@ -1,3 +1,4 @@
+#include "EventEngine.h"
 #include "EventLog.h"
 
 const char *alertTypeName(AlertType type) {
