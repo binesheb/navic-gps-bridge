@@ -27,7 +27,9 @@ inline String eventDashboardHtml() {
       if(!r.ok) throw new Error('events unavailable');
       const d=await r.json();
       const n=Array.isArray(d.events)?d.events:[];
-      const total=d.total_count!==undefined?d.total_count:(d.total||0);
+      // EventApi exposes the lifetime count as `count`. Keep the fallback for
+      // older payloads so the dashboard remains compatible during upgrades.
+      const total=d.count!==undefined?d.count:(d.total_count!==undefined?d.total_count:(d.total||0));
       eventSummary.textContent=n.length+' retained of '+(d.capacity||n.length)+'; '+total+' total';
       eventList.innerHTML=n.length?n.map(e=>{
         const t=escapeHtml(e.type||'event');
