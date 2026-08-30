@@ -14,6 +14,11 @@ struct BridgeConfig {
   bool webAuthEnabled = false;
   String webUsername = "admin";
   String webPassword;
+  String outputProfile = "generic";
+  bool geofenceEnabled = false;
+  double geofenceLatitude = 0.0;
+  double geofenceLongitude = 0.0;
+  float geofenceRadiusM = 100.0f;
 };
 
 class SettingsManager {
