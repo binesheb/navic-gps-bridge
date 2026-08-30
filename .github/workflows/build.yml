@@ -16,6 +16,8 @@ jobs:
           python-version: '3.11'
       - name: Install PlatformIO
         run: pip install platformio
+      - name: Run regression tests
+        run: pio test -e esp32-s3-devkitc-1
       - name: Build firmware
         run: pio run
       - name: Upload firmware artifact
