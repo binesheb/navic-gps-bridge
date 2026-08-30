@@ -1,17 +1,5 @@
 #include "EventDiagnostics.h"
 
-namespace {
-const char *alertTypeName(AlertType type) {
-  switch (type) {
-    case AlertType::FixLost: return "fix_lost";
-    case AlertType::FixAcquired: return "fix_acquired";
-    case AlertType::HighHdop: return "high_hdop";
-    case AlertType::LowSatellites: return "low_satellites";
-  }
-  return "unknown";
-}
-}
-
 void appendEventDiagnostics(const EventEngine &engine, JsonDocument &document) {
   JsonObject events = document["events"].to<JsonObject>();
   events["count"] = engine.count();
