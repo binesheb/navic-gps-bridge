@@ -13,6 +13,11 @@ bool SettingsManager::begin() {
   config.webAuthEnabled = prefs.getBool("webAuth", false);
   config.webUsername = prefs.getString("webUser", "admin");
   config.webPassword = prefs.getString("webPass", "");
+  config.outputProfile = prefs.getString("outProfile", "generic");
+  config.geofenceEnabled = prefs.getBool("geoEnabled", false);
+  config.geofenceLatitude = prefs.getDouble("geoLat", 0.0);
+  config.geofenceLongitude = prefs.getDouble("geoLon", 0.0);
+  config.geofenceRadiusM = prefs.getFloat("geoRadius", 100.0f);
   return true;
 }
 
@@ -29,6 +34,11 @@ bool SettingsManager::save(const BridgeConfig &next) {
   prefs.putBool("webAuth", config.webAuthEnabled);
   prefs.putString("webUser", config.webUsername);
   prefs.putString("webPass", config.webPassword);
+  prefs.putString("outProfile", config.outputProfile);
+  prefs.putBool("geoEnabled", config.geofenceEnabled);
+  prefs.putDouble("geoLat", config.geofenceLatitude);
+  prefs.putDouble("geoLon", config.geofenceLongitude);
+  prefs.putFloat("geoRadius", config.geofenceRadiusM);
   return true;
 }
 
