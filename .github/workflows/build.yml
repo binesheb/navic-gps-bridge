@@ -17,7 +17,7 @@ jobs:
       - name: Install PlatformIO
         run: pip install platformio
       - name: Compile Arduino regression test suites
-        run: pio test -e esp32-s3-tests --without-uploading
+        run: pio test -e esp32-s3-tests --without-testing
       - name: Build production firmware
         run: pio run -e esp32-s3-devkitc-1
       - name: Upload firmware artifact
