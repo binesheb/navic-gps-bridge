@@ -48,6 +48,29 @@ static void test_receiver_becomes_stale_after_timeout() {
   TEST_ASSERT_FALSE(stale.receiverOnline);
 }
 
+static void test_timeout_boundary_remains_fresh() {
+  NMEAEngine nmea;
+  GnssHealthMonitor health(5000);
+  TEST_ASSERT_TRUE(health.process(nmea, VALID_RMC, 1000));
+
+  GnssHealth snapshot = health.snapshot(nmea.data(), 6000);
+  TEST_ASSERT_EQUAL_UINT32(5000, snapshot.ageMs);
+  TEST_ASSERT_FALSE(snapshot.stale);
+  TEST_ASSERT_TRUE(snapshot.receiverOnline);
+}
+
+static void test_age_handles_millis_wraparound() {
+  NMEAEngine nmea;
+  GnssHealthMonitor health(5000);
+  const unsigned long beforeWrap = 0xFFFFFF00UL;
+  TEST_ASSERT_TRUE(health.process(nmea, VALID_RMC, beforeWrap));
+
+  GnssHealth snapshot = health.snapshot(nmea.data(), 0x00000100UL);
+  TEST_ASSERT_EQUAL_UINT32(512, snapshot.ageMs);
+  TEST_ASSERT_FALSE(snapshot.stale);
+  TEST_ASSERT_TRUE(snapshot.receiverOnline);
+}
+
 static void test_reset_clears_runtime_counters() {
   NMEAEngine nmea;
   GnssHealthMonitor health;
@@ -66,6 +89,8 @@ void setup() {
   RUN_TEST(test_valid_sentence_marks_receiver_online);
   RUN_TEST(test_invalid_sentence_is_counted_without_refreshing_age);
   RUN_TEST(test_receiver_becomes_stale_after_timeout);
+  RUN_TEST(test_timeout_boundary_remains_fresh);
+  RUN_TEST(test_age_handles_millis_wraparound);
   RUN_TEST(test_reset_clears_runtime_counters);
   UNITY_END();
 }
