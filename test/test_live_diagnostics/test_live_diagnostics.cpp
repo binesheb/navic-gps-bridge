@@ -23,6 +23,15 @@ void test_live_diagnostics_combines_runtime_and_event_state() {
   counters.geofenceInside = true;
   counters.geofenceEvents = 3;
 
+  GnssHealth health;
+  health.receiverOnline = true;
+  health.stale = false;
+  health.fix = true;
+  health.ageMs = 250;
+  health.acceptedSentences = 17;
+  health.rejectedSentences = 2;
+  counters.gnssHealth = &health;
+
   JsonDocument doc;
   buildLiveDiagnostics(data, events, counters, 10000, doc);
 
@@ -37,6 +46,11 @@ void test_live_diagnostics_combines_runtime_and_event_state() {
   TEST_ASSERT_TRUE(doc["geofence_inside"].as<bool>());
   TEST_ASSERT_EQUAL_UINT(3, doc["geofence_events"].as<unsigned long>());
   TEST_ASSERT_TRUE(doc["events"].is<JsonObject>());
+  TEST_ASSERT_TRUE(doc["gnss_health"]["receiver_online"].as<bool>());
+  TEST_ASSERT_FALSE(doc["gnss_health"]["stale"].as<bool>());
+  TEST_ASSERT_EQUAL_UINT(250, doc["gnss_health"]["age_ms"].as<unsigned long>());
+  TEST_ASSERT_EQUAL_UINT(17, doc["gnss_health"]["accepted_sentences"].as<unsigned long>());
+  TEST_ASSERT_EQUAL_UINT(2, doc["gnss_health"]["rejected_sentences"].as<unsigned long>());
 }
 
 void test_live_diagnostics_marks_stale_data() {
@@ -49,6 +63,7 @@ void test_live_diagnostics_marks_stale_data() {
   buildLiveDiagnostics(data, events, counters, 5000, doc);
 
   TEST_ASSERT_FALSE(doc["data_fresh"].as<bool>());
+  TEST_ASSERT_FALSE(doc["gnss_health"].is<JsonObject>());
 }
 
 void setup() {
