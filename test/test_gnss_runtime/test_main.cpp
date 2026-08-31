@@ -36,7 +36,7 @@ void test_runtime_produces_gps_compatible_output() {
   String output = runtime.gpsCompatible(input);
   TEST_ASSERT_TRUE(output.startsWith("$GPRMC,"));
   TEST_ASSERT_NOT_EQUAL(input, output);
-  TEST_ASSERT_EQUAL_STRING("$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,,,A*7D", output.c_str());
+  TEST_ASSERT_EQUAL_STRING("$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,,,A*7C", output.c_str());
 }
 
 void setup() {
