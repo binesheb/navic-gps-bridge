@@ -8,6 +8,7 @@ ESP32-S3 based universal GNSS bridge for NavIC-capable and multi-GNSS receivers.
 - NavIC/GPS and multi-constellation satellite recognition
 - Raw NMEA passthrough
 - GPS compatibility talker-ID conversion with regenerated checksum
+- GNSS runtime health monitoring with stale-data detection and accepted/rejected sentence counters
 - Wi-Fi TCP NMEA server
 - REST status API and responsive web dashboard
 - Track logging and CSV/GPX/KML export
@@ -36,4 +37,4 @@ Default TCP NMEA port: 10110.
 After flashing, follow the [hardware validation checklist](docs/HARDWARE_VALIDATION.md) to verify GNSS parsing, live diagnostics, GPS-compatible output, TCP streaming, and field stability.
 
 ## Status
-CI validates embedded regression-suite compilation and builds the ESP32-S3 production firmware. The next milestone is physical GNSS receiver validation using the checklist above.
+CI compiles the embedded regression suites and builds the ESP32-S3 production firmware. Runtime GNSS health tracking is now covered for valid input, checksum rejection, stale-data timeout, and reset behavior. The next milestone is physical GNSS receiver validation and surfacing the health counters through live diagnostics.
