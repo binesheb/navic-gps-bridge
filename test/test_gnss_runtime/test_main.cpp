@@ -30,10 +30,20 @@ void test_rejected_sentence_does_not_refresh_liveness() {
   TEST_ASSERT_EQUAL(1, h.rejectedSentences);
 }
 
+void test_runtime_produces_gps_compatible_output() {
+  GnssRuntime runtime;
+  String input = withChecksum("GNRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,,,A");
+  String output = runtime.gpsCompatible(input);
+  TEST_ASSERT_TRUE(output.startsWith("$GPRMC,"));
+  TEST_ASSERT_NOT_EQUAL(input, output);
+  TEST_ASSERT_EQUAL_STRING("$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,,,A*7D", output.c_str());
+}
+
 void setup() {
   UNITY_BEGIN();
   RUN_TEST(test_valid_sentence_updates_data_and_health);
   RUN_TEST(test_rejected_sentence_does_not_refresh_liveness);
+  RUN_TEST(test_runtime_produces_gps_compatible_output);
   UNITY_END();
 }
 void loop() {}
