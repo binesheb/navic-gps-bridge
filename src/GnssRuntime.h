@@ -14,6 +14,11 @@ class GnssRuntime {
 
   bool ingest(const String &sentence, unsigned long nowMs);
   const GnssData &data() const { return engine.data(); }
+  // Keep compatibility conversion behind the same production GNSS boundary so
+  // callers do not need to reach into a second parser instance.
+  String gpsCompatible(const String &sentence) const {
+    return engine.gpsCompatible(sentence);
+  }
   GnssHealth health(unsigned long nowMs) const {
     return healthMonitor.snapshot(engine.data(), nowMs);
   }
