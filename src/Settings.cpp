@@ -1,4 +1,5 @@
 #include "Settings.h"
+#include "GnssRecoveryPolicy.h"
 
 bool SettingsManager::begin() {
   if (!prefs.begin("navicbridge", false)) return false;
@@ -18,13 +19,15 @@ bool SettingsManager::begin() {
   config.geofenceLatitude = prefs.getDouble("geoLat", 0.0);
   config.geofenceLongitude = prefs.getDouble("geoLon", 0.0);
   config.geofenceRadiusM = prefs.getFloat("geoRadius", 100.0f);
-  config.gnssRecoverySilenceMs = prefs.getULong("recSilence", 10000);
-  config.gnssRecoveryCooldownMs = prefs.getULong("recCooldown", 30000);
+  config.gnssRecoverySilenceMs = GnssRecoveryPolicy::clampSilence(prefs.getULong("recSilence", 10000));
+  config.gnssRecoveryCooldownMs = GnssRecoveryPolicy::clampCooldown(prefs.getULong("recCooldown", 30000));
   return true;
 }
 
 bool SettingsManager::save(const BridgeConfig &next) {
   config = next;
+  config.gnssRecoverySilenceMs = GnssRecoveryPolicy::clampSilence(config.gnssRecoverySilenceMs);
+  config.gnssRecoveryCooldownMs = GnssRecoveryPolicy::clampCooldown(config.gnssRecoveryCooldownMs);
   prefs.putULong("gnssBaud", config.gnssBaud);
   prefs.putULong("outBaud", config.gpsOutBaud);
   prefs.putUShort("tcpPort", config.tcpPort);
