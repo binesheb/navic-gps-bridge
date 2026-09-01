@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include "GnssRecoveryPolicy.h"
 
 struct GnssRecoveryStatus {
   bool recovering = false;
@@ -14,14 +15,20 @@ struct GnssRecoveryStatus {
 class GnssRecoveryMonitor {
  public:
   explicit GnssRecoveryMonitor(uint32_t silenceMs = 10000, uint32_t cooldownMs = 30000)
-      : silenceMs_(silenceMs), cooldownMs_(cooldownMs) {
-    status_.silenceMs = silenceMs_;
-    status_.cooldownMs = cooldownMs_;
+      : silenceMs_(GnssRecoveryPolicy::clampSilence(silenceMs)),
+        cooldownMs_(GnssRecoveryPolicy::clampCooldown(cooldownMs)) {
+    syncPolicyStatus();
   }
 
-  // Start silence monitoring from a known time. This lets a receiver that never
-  // produces its first sentence be recovered instead of remaining permanently
-  // in the uninitialised lastDataMs==0 state.
+  // Update thresholds without resetting monitoring, recovery history, or the
+  // last-data timestamp. This allows /api/config changes to take effect safely
+  // while the bridge is running.
+  void reconfigure(uint32_t silenceMs, uint32_t cooldownMs) {
+    silenceMs_ = GnssRecoveryPolicy::clampSilence(silenceMs);
+    cooldownMs_ = GnssRecoveryPolicy::clampCooldown(cooldownMs);
+    syncPolicyStatus();
+  }
+
   void begin(uint32_t nowMs) {
     status_.monitoring = true;
     status_.lastDataMs = nowMs;
@@ -46,9 +53,15 @@ class GnssRecoveryMonitor {
     status_.lastDataMs = nowMs;
     status_.recovering = false;
   }
+
   const GnssRecoveryStatus& status() const { return status_; }
 
  private:
+  void syncPolicyStatus() {
+    status_.silenceMs = silenceMs_;
+    status_.cooldownMs = cooldownMs_;
+  }
+
   uint32_t silenceMs_;
   uint32_t cooldownMs_;
   bool hasRecovered_ = false;
