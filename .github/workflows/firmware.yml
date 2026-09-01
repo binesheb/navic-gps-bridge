@@ -1,0 +1,31 @@
+name: Firmware Validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Run ESP32-S3 regression suite
+        run: pio test -e esp32-s3-tests
+
+      - name: Build production firmware
+        run: pio run -e esp32-s3-devkitc-1
