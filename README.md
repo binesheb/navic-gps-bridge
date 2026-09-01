@@ -12,7 +12,10 @@ ESP32-S3 based universal GNSS bridge for NavIC-capable and multi-GNSS receivers.
 - Configurable GNSS silence detection and UART recovery policy
 - Startup monitoring for receivers that never emit an initial valid sentence
 - Recovery cooldown protection to avoid rapid UART restart loops
-- Recovery controller, runtime adapter, and production service facade with regression coverage
+- Recovery controller, runtime adapter, production service, lifecycle integration, and regression coverage
+- Runtime recovery-policy updates without reboot
+- Live recovery diagnostics exposed through `/api/live`
+- Recovery policy configuration through `/api/config`
 - Wi-Fi TCP NMEA server
 - REST status API and responsive web dashboard
 - Track logging and CSV/GPX/KML export
@@ -52,13 +55,13 @@ The policy is persisted in device settings:
 - `gnssRecoverySilenceMs` (default: 10 seconds)
 - `gnssRecoveryCooldownMs` (default: 30 seconds)
 
-Policy values are bounded to prevent invalid configuration from creating restart loops. The recovery monitor can also be armed at startup so a receiver that never produces its first valid NMEA sentence can still be recovered.
+Policy values are bounded to prevent invalid configuration from creating restart loops. Recovery is armed at startup so a receiver that never produces its first valid NMEA sentence can still be recovered. Accepted GNSS data refreshes the watchdog; rejected sentences do not.
 
-The reusable production integration surface is `GnssRecoveryService`, which owns policy construction, startup monitoring, fresh-data tracking, UART recovery, and recovery diagnostics attachment.
+The production lifecycle is wired into `main.cpp`. Runtime configuration changes propagate to the live recovery controller without clearing recovery history, and `/api/live` reports the current recovery state and policy.
 
 ## Validation
 
-After flashing, follow the [hardware validation checklist](docs/HARDWARE_VALIDATION.md) to verify GNSS parsing, live diagnostics, GPS-compatible output, TCP streaming, and field stability.
+After flashing, follow the [hardware validation checklist](docs/HARDWARE_VALIDATION.md) to verify GNSS parsing, live diagnostics, GPS-compatible output, TCP streaming, and recovery behaviour.
 
 For regression testing:
 
@@ -66,10 +69,14 @@ For regression testing:
 pio test -e esp32-s3-tests
 ```
 
-The ESP32-S3 test environment includes GNSS parsing, health, runtime diagnostics, production pipeline, recovery monitor/controller/runtime/policy/service, event, and live-diagnostics suites.
+For a production firmware build:
+
+```bash
+pio run -e esp32-s3-devkitc-1
+```
+
+GitHub Actions runs both the ESP32-S3 regression suite and the production firmware build on pushes and pull requests targeting `main`.
 
 ## Current status
 
-The GNSS recovery subsystem is implemented and covered by the embedded regression configuration. The remaining production activation step is wiring `GnssRecoveryService` into `main.cpp` so the real firmware arms recovery after UART startup, marks accepted GNSS input, polls for silence, restarts the UART when required, and publishes recovery state through `/api/live`.
-
-The next milestone after that is physical receiver validation under startup failure, cable disconnect, prolonged silence, and recovery conditions.
+The GNSS recovery subsystem is implemented, integrated into the production firmware, and covered by the embedded regression configuration. The next milestone is physical receiver validation under startup failure, cable disconnect, prolonged silence, UART recovery, and recovery cooldown conditions.
