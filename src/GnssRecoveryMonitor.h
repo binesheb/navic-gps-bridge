@@ -8,6 +8,7 @@ struct GnssRecoveryStatus {
   uint32_t lastRecoveryMs = 0;
   uint32_t lastDataMs = 0;
   uint32_t silenceMs = 10000;
+  uint32_t cooldownMs = 30000;
 };
 
 class GnssRecoveryMonitor {
@@ -15,6 +16,7 @@ class GnssRecoveryMonitor {
   explicit GnssRecoveryMonitor(uint32_t silenceMs = 10000, uint32_t cooldownMs = 30000)
       : silenceMs_(silenceMs), cooldownMs_(cooldownMs) {
     status_.silenceMs = silenceMs_;
+    status_.cooldownMs = cooldownMs_;
   }
 
   // Start silence monitoring from a known time. This lets a receiver that never
