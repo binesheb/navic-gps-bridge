@@ -19,6 +19,11 @@ struct BridgeConfig {
   double geofenceLatitude = 0.0;
   double geofenceLongitude = 0.0;
   float geofenceRadiusM = 100.0f;
+
+  // GNSS UART recovery policy. These values are persisted so unattended
+  // deployments can tune silence detection without changing firmware.
+  uint32_t gnssRecoverySilenceMs = 10000;
+  uint32_t gnssRecoveryCooldownMs = 30000;
 };
 
 class SettingsManager {
