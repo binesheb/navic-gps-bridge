@@ -14,6 +14,13 @@ class GnssRecoveryController {
 
   void markData(uint32_t nowMs) { monitor_.markData(nowMs); }
 
+  // Production-friendly form: use the controller's own last-data timestamp.
+  // This keeps recovery state and recovery decisions driven by one source.
+  bool poll(uint32_t nowMs, GnssRecoveryAction &action) {
+    return poll(nowMs, monitor_.status().lastDataMs, action);
+  }
+
+  // Compatibility form for callers that still own their own last-data clock.
   bool poll(uint32_t nowMs, uint32_t lastDataMs, GnssRecoveryAction &action) {
     action = {};
     if (!monitor_.shouldRecover(nowMs, lastDataMs)) return false;
