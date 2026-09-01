@@ -3,6 +3,7 @@
 #include "NMEAEngine.h"
 #include "EventDiagnostics.h"
 #include "GnssHealth.h"
+#include "GnssRecoveryMonitor.h"
 
 struct LiveDiagnosticsCounters {
   unsigned long packets = 0;
@@ -12,6 +13,7 @@ struct LiveDiagnosticsCounters {
   bool geofenceInside = false;
   unsigned long geofenceEvents = 0;
   const GnssHealth *gnssHealth = nullptr;
+  const GnssRecoveryStatus *gnssRecovery = nullptr;
 };
 
 void buildLiveDiagnostics(const GnssData &data, const EventEngine &events,
