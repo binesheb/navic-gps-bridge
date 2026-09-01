@@ -18,6 +18,8 @@ bool SettingsManager::begin() {
   config.geofenceLatitude = prefs.getDouble("geoLat", 0.0);
   config.geofenceLongitude = prefs.getDouble("geoLon", 0.0);
   config.geofenceRadiusM = prefs.getFloat("geoRadius", 100.0f);
+  config.gnssRecoverySilenceMs = prefs.getULong("recSilence", 10000);
+  config.gnssRecoveryCooldownMs = prefs.getULong("recCooldown", 30000);
   return true;
 }
 
@@ -39,6 +41,8 @@ bool SettingsManager::save(const BridgeConfig &next) {
   prefs.putDouble("geoLat", config.geofenceLatitude);
   prefs.putDouble("geoLon", config.geofenceLongitude);
   prefs.putFloat("geoRadius", config.geofenceRadiusM);
+  prefs.putULong("recSilence", config.gnssRecoverySilenceMs);
+  prefs.putULong("recCooldown", config.gnssRecoveryCooldownMs);
   return true;
 }
 
