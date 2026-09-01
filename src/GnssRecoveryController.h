@@ -15,6 +15,10 @@ class GnssRecoveryController {
   void begin(uint32_t nowMs) { monitor_.begin(nowMs); }
   void markData(uint32_t nowMs) { monitor_.markData(nowMs); }
 
+  void reconfigure(uint32_t silenceMs, uint32_t cooldownMs) {
+    monitor_.reconfigure(silenceMs, cooldownMs);
+  }
+
   bool poll(uint32_t nowMs, GnssRecoveryAction &action) {
     return poll(nowMs, monitor_.status().lastDataMs, action);
   }
