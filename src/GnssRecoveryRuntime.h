@@ -12,6 +12,10 @@ class GnssRecoveryRuntime {
   void begin(uint32_t nowMs) { controller_.begin(nowMs); }
   void markData(uint32_t nowMs) { controller_.markData(nowMs); }
 
+  void reconfigure(uint32_t silenceMs, uint32_t cooldownMs) {
+    controller_.reconfigure(silenceMs, cooldownMs);
+  }
+
   bool pollAndRecover(uint32_t nowMs, HardwareSerial &serial,
                       uint32_t baud, int rxPin, int txPin) {
     GnssRecoveryAction action;
