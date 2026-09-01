@@ -1,0 +1,29 @@
+#pragma once
+#include <Arduino.h>
+#include "GnssRecoveryMonitor.h"
+
+struct GnssRecoveryAction {
+  bool restartUart = false;
+  uint32_t attempt = 0;
+};
+
+class GnssRecoveryController {
+ public:
+  explicit GnssRecoveryController(uint32_t silenceMs = 10000, uint32_t cooldownMs = 30000)
+      : monitor_(silenceMs, cooldownMs) {}
+
+  void markData(uint32_t nowMs) { monitor_.markData(nowMs); }
+
+  bool poll(uint32_t nowMs, uint32_t lastDataMs, GnssRecoveryAction &action) {
+    action = {};
+    if (!monitor_.shouldRecover(nowMs, lastDataMs)) return false;
+    action.restartUart = true;
+    action.attempt = monitor_.status().recoveryCount;
+    return true;
+  }
+
+  const GnssRecoveryStatus &status() const { return monitor_.status(); }
+
+ private:
+  GnssRecoveryMonitor monitor_;
+};
