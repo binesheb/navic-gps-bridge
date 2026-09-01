@@ -3,6 +3,7 @@
 
 struct GnssRecoveryStatus {
   bool recovering = false;
+  bool monitoring = false;
   uint32_t recoveryCount = 0;
   uint32_t lastRecoveryMs = 0;
   uint32_t lastDataMs = 0;
@@ -16,9 +17,19 @@ class GnssRecoveryMonitor {
     status_.silenceMs = silenceMs_;
   }
 
+  // Start silence monitoring from a known time. This lets a receiver that never
+  // produces its first sentence be recovered instead of remaining permanently
+  // in the uninitialised lastDataMs==0 state.
+  void begin(uint32_t nowMs) {
+    status_.monitoring = true;
+    status_.lastDataMs = nowMs;
+    status_.recovering = false;
+  }
+
   bool shouldRecover(uint32_t nowMs, uint32_t lastDataMs) {
+    status_.monitoring = true;
     status_.lastDataMs = lastDataMs;
-    if (lastDataMs == 0 || (uint32_t)(nowMs - lastDataMs) <= silenceMs_) return false;
+    if ((uint32_t)(nowMs - lastDataMs) <= silenceMs_) return false;
     if (status_.lastRecoveryMs != 0 && (uint32_t)(nowMs - status_.lastRecoveryMs) < cooldownMs_) return false;
     status_.recovering = true;
     status_.lastRecoveryMs = nowMs;
@@ -27,6 +38,7 @@ class GnssRecoveryMonitor {
   }
 
   void markData(uint32_t nowMs) {
+    status_.monitoring = true;
     status_.lastDataMs = nowMs;
     status_.recovering = false;
   }
