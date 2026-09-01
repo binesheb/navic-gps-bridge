@@ -28,5 +28,14 @@ void buildLiveDiagnostics(const GnssData &data, const EventEngine &events,
     health["rejected_sentences"] = counters.gnssHealth->rejectedSentences;
   }
 
+  if (counters.gnssRecovery) {
+    JsonObject recovery = document["gnss_recovery"].to<JsonObject>();
+    recovery["recovering"] = counters.gnssRecovery->recovering;
+    recovery["attempts"] = counters.gnssRecovery->recoveryCount;
+    recovery["last_recovery_ms"] = counters.gnssRecovery->lastRecoveryMs;
+    recovery["last_data_ms"] = counters.gnssRecovery->lastDataMs;
+    recovery["silence_ms"] = counters.gnssRecovery->silenceMs;
+  }
+
   appendEventDiagnostics(events, document);
 }
