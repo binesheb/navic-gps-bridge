@@ -30,11 +30,13 @@ void buildLiveDiagnostics(const GnssData &data, const EventEngine &events,
 
   if (counters.gnssRecovery) {
     JsonObject recovery = document["gnss_recovery"].to<JsonObject>();
+    recovery["monitoring"] = counters.gnssRecovery->monitoring;
     recovery["recovering"] = counters.gnssRecovery->recovering;
     recovery["attempts"] = counters.gnssRecovery->recoveryCount;
     recovery["last_recovery_ms"] = counters.gnssRecovery->lastRecoveryMs;
     recovery["last_data_ms"] = counters.gnssRecovery->lastDataMs;
     recovery["silence_ms"] = counters.gnssRecovery->silenceMs;
+    recovery["cooldown_ms"] = counters.gnssRecovery->cooldownMs;
   }
 
   appendEventDiagnostics(events, document);
