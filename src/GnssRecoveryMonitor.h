@@ -29,10 +29,12 @@ class GnssRecoveryMonitor {
   bool shouldRecover(uint32_t nowMs, uint32_t lastDataMs) {
     status_.monitoring = true;
     status_.lastDataMs = lastDataMs;
+    // Unsigned subtraction intentionally handles the ESP32 millis() rollover.
     if ((uint32_t)(nowMs - lastDataMs) <= silenceMs_) return false;
-    if (status_.lastRecoveryMs != 0 && (uint32_t)(nowMs - status_.lastRecoveryMs) < cooldownMs_) return false;
+    if (hasRecovered_ && (uint32_t)(nowMs - status_.lastRecoveryMs) < cooldownMs_) return false;
     status_.recovering = true;
     status_.lastRecoveryMs = nowMs;
+    hasRecovered_ = true;
     ++status_.recoveryCount;
     return true;
   }
@@ -47,5 +49,6 @@ class GnssRecoveryMonitor {
  private:
   uint32_t silenceMs_;
   uint32_t cooldownMs_;
+  bool hasRecovered_ = false;
   GnssRecoveryStatus status_;
 };
