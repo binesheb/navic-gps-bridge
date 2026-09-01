@@ -22,6 +22,7 @@ Expected checks:
 - GGA updates fix quality, satellites, HDOP, and altitude.
 - GSV updates the satellite view.
 - Invalid-checksum sentences are rejected and counted as invalid packets.
+- Accepted NMEA sentences refresh GNSS recovery health tracking.
 
 ## 3. Web diagnostics
 
@@ -33,7 +34,9 @@ Verify:
 - Latitude and longitude update.
 - Satellite count and speed update.
 - `/api/live` returns fresh packet and diagnostics information.
+- `/api/live` reports GNSS recovery monitoring state, silence, cooldown, and recovery count.
 - `/api/config` persists configuration changes after restart.
+- Changing GNSS recovery silence/cooldown settings takes effect without rebooting.
 
 ## 4. GPS-compatible output
 
@@ -50,7 +53,35 @@ When GPS compatibility conversion is enabled:
 
 Connect a client to TCP port 10110 (or the configured port) and confirm that each accepted NMEA sentence is streamed to connected clients.
 
-## 6. Field test
+## 6. GNSS recovery validation
+
+Run these tests deliberately with the receiver in a safe test setup.
+
+### Startup failure
+
+1. Power the bridge with the GNSS receiver disconnected or held silent.
+2. Confirm recovery monitoring becomes active.
+3. Wait beyond the configured silence threshold.
+4. Confirm a UART recovery attempt is recorded in `/api/live`.
+5. Restore the receiver and confirm valid NMEA data is accepted.
+
+### Cable disconnect / prolonged silence
+
+1. Establish a valid GNSS stream.
+2. Disconnect the GNSS UART signal or otherwise stop the receiver's NMEA output.
+3. Confirm `silence_ms` grows while valid input is absent.
+4. Confirm recovery occurs after the configured threshold.
+5. Confirm repeated restarts are prevented during the configured cooldown.
+6. Restore the receiver and verify normal streaming resumes.
+
+### Recovery configuration
+
+1. Change `gnss_recovery_silence_ms` and `gnss_recovery_cooldown_ms` through `/api/config`.
+2. Confirm the new values appear in `/api/live`.
+3. Confirm the recovery controller uses the new values without rebooting.
+4. Confirm recovery history remains intact after the policy change.
+
+## 7. Field test
 
 Perform a stationary test followed by a moving test.
 
@@ -63,7 +94,10 @@ Record:
 - GPS-compatible UART output
 - TCP client stability
 - Web dashboard refresh behaviour
+- Number of recovery events
+- Recovery response time
+- Whether any unexpected UART restart loops occur
 
 ## Pass criteria
 
-A hardware validation pass requires a sustained valid fix, continuously updating diagnostics, valid downstream NMEA output, and no unexpected resets during at least 30 minutes of normal operation.
+A hardware validation pass requires a sustained valid fix, continuously updating diagnostics, valid downstream NMEA output, successful TCP streaming, correct recovery behaviour during an induced GNSS outage, and no unexpected resets during at least 30 minutes of normal operation.
