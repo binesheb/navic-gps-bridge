@@ -21,6 +21,7 @@ class GnssRecoveryRuntime {
     return true;
   }
 
+  GnssRecoveryController &controller() { return controller_; }
   const GnssRecoveryController &controller() const { return controller_; }
 
  private:
