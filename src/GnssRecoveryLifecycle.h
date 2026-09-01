@@ -18,6 +18,12 @@ class GnssRecoveryLifecycle {
     service_.begin(nowMs);
   }
 
+  // Apply persisted configuration after SettingsManager has loaded it. This
+  // intentionally preserves monitoring state and recovery history.
+  void reconfigure(const BridgeConfig &config) {
+    service_.reconfigure(config);
+  }
+
   void observeAccepted(bool accepted, uint32_t nowMs) {
     GnssRecoveryIntegration::observeProcessResult(service_, accepted, nowMs);
   }
