@@ -32,6 +32,14 @@ void test_live_diagnostics_combines_runtime_and_event_state() {
   health.rejectedSentences = 2;
   counters.gnssHealth = &health;
 
+  GnssRecoveryStatus recovery;
+  recovery.recovering = true;
+  recovery.recoveryCount = 2;
+  recovery.lastRecoveryMs = 7500;
+  recovery.lastDataMs = 9000;
+  recovery.silenceMs = 10000;
+  counters.gnssRecovery = &recovery;
+
   JsonDocument doc;
   buildLiveDiagnostics(data, events, counters, 10000, doc);
 
@@ -51,6 +59,11 @@ void test_live_diagnostics_combines_runtime_and_event_state() {
   TEST_ASSERT_EQUAL_UINT(250, doc["gnss_health"]["age_ms"].as<unsigned long>());
   TEST_ASSERT_EQUAL_UINT(17, doc["gnss_health"]["accepted_sentences"].as<unsigned long>());
   TEST_ASSERT_EQUAL_UINT(2, doc["gnss_health"]["rejected_sentences"].as<unsigned long>());
+  TEST_ASSERT_TRUE(doc["gnss_recovery"]["recovering"].as<bool>());
+  TEST_ASSERT_EQUAL_UINT(2, doc["gnss_recovery"]["attempts"].as<unsigned long>());
+  TEST_ASSERT_EQUAL_UINT(7500, doc["gnss_recovery"]["last_recovery_ms"].as<unsigned long>());
+  TEST_ASSERT_EQUAL_UINT(9000, doc["gnss_recovery"]["last_data_ms"].as<unsigned long>());
+  TEST_ASSERT_EQUAL_UINT(10000, doc["gnss_recovery"]["silence_ms"].as<unsigned long>());
 }
 
 void test_live_diagnostics_marks_stale_data() {
@@ -64,6 +77,7 @@ void test_live_diagnostics_marks_stale_data() {
 
   TEST_ASSERT_FALSE(doc["data_fresh"].as<bool>());
   TEST_ASSERT_FALSE(doc["gnss_health"].is<JsonObject>());
+  TEST_ASSERT_FALSE(doc["gnss_recovery"].is<JsonObject>());
 }
 
 void setup() {
