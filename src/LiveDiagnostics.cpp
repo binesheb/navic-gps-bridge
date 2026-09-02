@@ -13,7 +13,8 @@ void buildLiveDiagnostics(const GnssData &data, const EventEngine &events,
   document["last_nmea"] = data.lastSentence;
   document["packets"] = counters.packets;
   document["invalid_packets"] = counters.invalidPackets;
-  document["data_fresh"] = nowMs - counters.lastDataMs < 3000;
+  document["data_fresh"] = counters.lastDataMs != 0 &&
+                            nowMs - counters.lastDataMs < 3000;
   document["wifi_mode"] = counters.wifiMode;
   document["uptime_ms"] = nowMs;
   document["geofence_inside"] = counters.geofenceInside;
