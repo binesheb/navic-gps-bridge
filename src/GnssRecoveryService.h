@@ -33,6 +33,7 @@ class GnssRecoveryService {
     attachGnssRecoveryDiagnostics(counters, runtime_.controller());
   }
 
+  GnssRecoveryController &controller() { return runtime_.controller(); }
   const GnssRecoveryController &controller() const {
     return runtime_.controller();
   }
