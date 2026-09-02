@@ -11,12 +11,11 @@ double GeofenceEngine::distance(double lat1,double lon1,double lat2,double lon2)
 }
 
 bool GeofenceEngine::update(double latitude,double longitude,bool fix,unsigned long now) {
-  (void)now;
   if(!fence.enabled||!fix) return false;
   bool next=distance(latitude,longitude,fence.latitude,fence.longitude)<=fence.radiusMeters;
   if(!initialized){initialized=true;insideFence=next;return false;}
   if(next==insideFence) return false;
-  insideFence=next;events++;
+  insideFence=next;events++;lastEventTimestamp=now;
   last=next?"Geofence entered":"Geofence exited";
   return true;
 }
