@@ -20,6 +20,7 @@ void test_disabled_geofence_does_not_change_state() {
   TEST_ASSERT_FALSE(engine.update(10.0, 76.0, true, 1000));
   TEST_ASSERT_FALSE(engine.inside());
   TEST_ASSERT_EQUAL_UINT(0, engine.eventCount());
+  TEST_ASSERT_EQUAL_UINT(0, engine.lastEventAt());
 }
 
 void test_initial_fix_establishes_state_without_event() {
@@ -29,6 +30,7 @@ void test_initial_fix_establishes_state_without_event() {
   TEST_ASSERT_FALSE(engine.update(10.0, 76.0, true, 1000));
   TEST_ASSERT_TRUE(engine.inside());
   TEST_ASSERT_EQUAL_UINT(0, engine.eventCount());
+  TEST_ASSERT_EQUAL_UINT(0, engine.lastEventAt());
 }
 
 void test_crossing_boundary_generates_enter_and_exit_events() {
@@ -42,11 +44,13 @@ void test_crossing_boundary_generates_enter_and_exit_events() {
   TEST_ASSERT_FALSE(engine.inside());
   TEST_ASSERT_EQUAL_UINT(1, engine.eventCount());
   TEST_ASSERT_EQUAL_STRING("Geofence exited", engine.lastEvent().c_str());
+  TEST_ASSERT_EQUAL_UINT(2000, engine.lastEventAt());
 
   TEST_ASSERT_TRUE(engine.update(10.0, 76.0, true, 3000));
   TEST_ASSERT_TRUE(engine.inside());
   TEST_ASSERT_EQUAL_UINT(2, engine.eventCount());
   TEST_ASSERT_EQUAL_STRING("Geofence entered", engine.lastEvent().c_str());
+  TEST_ASSERT_EQUAL_UINT(3000, engine.lastEventAt());
 }
 
 void test_invalid_fix_is_ignored_without_losing_last_state() {
@@ -59,6 +63,7 @@ void test_invalid_fix_is_ignored_without_losing_last_state() {
   TEST_ASSERT_FALSE(engine.update(20.0, 86.0, false, 2000));
   TEST_ASSERT_TRUE(engine.inside());
   TEST_ASSERT_EQUAL_UINT(0, engine.eventCount());
+  TEST_ASSERT_EQUAL_UINT(0, engine.lastEventAt());
 }
 
 void test_longitude_wrap_distance_across_dateline() {
