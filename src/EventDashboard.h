@@ -55,10 +55,14 @@ inline String eventDashboardHtml() {
   };
   window.loadGeofence=async function(){
     try{
-      const r=await fetch('/api/live',{cache:'no-store'});
-      if(!r.ok) throw new Error('live unavailable');
-      const d=await r.json();
-      const enabled=d.geofence_enabled!==false;
+      const [liveResponse,configResponse]=await Promise.all([
+        fetch('/api/live',{cache:'no-store'}),
+        fetch('/api/config',{cache:'no-store'})
+      ]);
+      if(!liveResponse.ok||!configResponse.ok) throw new Error('diagnostics unavailable');
+      const d=await liveResponse.json();
+      const c=await configResponse.json();
+      const enabled=Boolean(c.geofence_enabled);
       const inside=Boolean(d.geofence_inside);
       const transitions=Number(d.geofence_events||0);
       geofenceState.textContent=!enabled?'DISABLED':(inside?'INSIDE':'OUTSIDE');
