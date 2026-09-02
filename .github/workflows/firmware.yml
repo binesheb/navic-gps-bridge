@@ -15,10 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.x'
           cache: pip
@@ -56,7 +56,7 @@ jobs:
         run: pio run -e esp32-s3-devkitc-1 -t size
 
       - name: Upload production firmware artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: navic-gps-bridge-esp32-s3-firmware
           path: |
