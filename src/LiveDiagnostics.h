@@ -12,6 +12,7 @@ struct LiveDiagnosticsCounters {
   const char *wifiMode = "OFFLINE";
   bool geofenceInside = false;
   unsigned long geofenceEvents = 0;
+  unsigned long geofenceLastEventMs = 0;
   const GnssHealth *gnssHealth = nullptr;
   const GnssRecoveryStatus *gnssRecovery = nullptr;
 };
