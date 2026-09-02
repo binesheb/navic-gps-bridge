@@ -5,7 +5,7 @@
 namespace {
 BridgeConfig makeConfig() {
   BridgeConfig config{};
-  config.gnssSilenceMs = 1000;
+  config.gnssRecoverySilenceMs = 1000;
   config.gnssRecoveryCooldownMs = 500;
   config.gnssBaud = 9600;
   return config;
