@@ -27,6 +27,10 @@ jobs:
       - name: Install PlatformIO
         run: pip install -r requirements-ci.txt
 
+      - name: Run NMEA stream checker self-tests
+        working-directory: tools
+        run: python test_nmea_stream_check.py
+
       - name: Run ESP32-S3 regression suite
         run: pio test -e esp32-s3-tests
 
