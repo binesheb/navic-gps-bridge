@@ -17,6 +17,7 @@ void buildLiveDiagnostics(const GnssData &data, const EventEngine &events,
   document["wifi_mode"] = counters.wifiMode;
   document["geofence_inside"] = counters.geofenceInside;
   document["geofence_events"] = counters.geofenceEvents;
+  document["geofence_last_event_ms"] = counters.geofenceLastEventMs;
 
   if (counters.gnssHealth) {
     JsonObject health = document["gnss_health"].to<JsonObject>();
