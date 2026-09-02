@@ -17,6 +17,7 @@ inline String eventDashboardHtml() {
   <div class="grid" style="margin-top:10px">
     <div><div class="label">State</div><div id="geofence-state" class="value">—</div></div>
     <div><div class="label">Transitions</div><div id="geofence-events" class="value">—</div></div>
+    <div><div class="label">Last transition</div><div id="geofence-age" class="value">—</div></div>
   </div>
   <small id="geofence-summary" aria-live="polite">Loading…</small>
 </div>
@@ -26,11 +27,24 @@ inline String eventDashboardHtml() {
   const eventList=document.getElementById('event-list');
   const geofenceState=document.getElementById('geofence-state');
   const geofenceEvents=document.getElementById('geofence-events');
+  const geofenceAge=document.getElementById('geofence-age');
   const geofenceSummary=document.getElementById('geofence-summary');
   function escapeHtml(value){
-    return String(value??'').replace(/[&<>"']/g,ch=>({
-      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    return String(value??'').replace(/[&<>\"']/g,ch=>({
+      '&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'
     }[ch]));
+  }
+  function formatAge(ms){
+    if(!Number.isFinite(ms)||ms<0) return '—';
+    if(ms<1000) return '<1 s ago';
+    const seconds=Math.floor(ms/1000);
+    if(seconds<60) return seconds+' s ago';
+    const minutes=Math.floor(seconds/60);
+    if(minutes<60) return minutes+' min ago';
+    const hours=Math.floor(minutes/60);
+    if(hours<24) return hours+' h '+(minutes%60)+' min ago';
+    const days=Math.floor(hours/24);
+    return days+' d '+(hours%24)+' h ago';
   }
   window.loadEvents=async function(){
     try{
@@ -65,15 +79,20 @@ inline String eventDashboardHtml() {
       const enabled=Boolean(c.geofence_enabled);
       const inside=Boolean(d.geofence_inside);
       const transitions=Number(d.geofence_events||0);
+      const uptime=Number(d.uptime_ms);
+      const lastEvent=Number(d.geofence_last_event_ms);
+      const age=lastEvent>0&&Number.isFinite(uptime)?Math.max(0,uptime-lastEvent):NaN;
       geofenceState.textContent=!enabled?'DISABLED':(inside?'INSIDE':'OUTSIDE');
       geofenceState.className='value '+(!enabled?'':(inside?'ok':'bad'));
       geofenceEvents.textContent=String(transitions);
+      geofenceAge.textContent=lastEvent>0?formatAge(age):'Never';
       geofenceSummary.textContent=enabled
         ? (transitions+' boundary transition'+(transitions===1?'':'s')+' recorded')
         : 'Enable a geofence to monitor boundary transitions';
     }catch(e){
       geofenceState.textContent='UNAVAILABLE';
       geofenceState.className='value bad';
+      geofenceAge.textContent='—';
       geofenceSummary.textContent='Live diagnostics unavailable';
     }
   };
