@@ -51,10 +51,12 @@ void test_live_diagnostics_combines_runtime_and_event_state() {
   TEST_ASSERT_EQUAL_UINT(17, doc["packets"].as<unsigned long>());
   TEST_ASSERT_EQUAL_UINT(2, doc["invalid_packets"].as<unsigned long>());
   TEST_ASSERT_TRUE(doc["data_fresh"].as<bool>());
+  TEST_ASSERT_EQUAL_UINT(10000, doc["uptime_ms"].as<unsigned long>());
   TEST_ASSERT_EQUAL_STRING("AP+STA", doc["wifi_mode"].as<const char*>());
   TEST_ASSERT_TRUE(doc["geofence_inside"].as<bool>());
   TEST_ASSERT_EQUAL_UINT(3, doc["geofence_events"].as<unsigned long>());
   TEST_ASSERT_EQUAL_UINT(8750, doc["geofence_last_event_ms"].as<unsigned long>());
+  TEST_ASSERT_EQUAL_UINT(1250, doc["geofence_last_event_age_ms"].as<unsigned long>());
   TEST_ASSERT_TRUE(doc["events"].is<JsonObject>());
   TEST_ASSERT_TRUE(doc["gnss_health"]["receiver_online"].as<bool>());
   TEST_ASSERT_FALSE(doc["gnss_health"]["stale"].as<bool>());
@@ -79,8 +81,21 @@ void test_live_diagnostics_marks_stale_data() {
 
   TEST_ASSERT_FALSE(doc["data_fresh"].as<bool>());
   TEST_ASSERT_EQUAL_UINT(0, doc["geofence_last_event_ms"].as<unsigned long>());
+  TEST_ASSERT_EQUAL_UINT(0, doc["geofence_last_event_age_ms"].as<unsigned long>());
   TEST_ASSERT_FALSE(doc["gnss_health"].is<JsonObject>());
   TEST_ASSERT_FALSE(doc["gnss_recovery"].is<JsonObject>());
+}
+
+void test_live_diagnostics_handles_millis_rollover_for_event_age() {
+  GnssData data;
+  EventEngine events;
+  LiveDiagnosticsCounters counters;
+  counters.geofenceLastEventMs = 0xFFFFFF00UL;
+
+  JsonDocument doc;
+  buildLiveDiagnostics(data, events, counters, 0x00000100UL, doc);
+
+  TEST_ASSERT_EQUAL_UINT(512, doc["geofence_last_event_age_ms"].as<unsigned long>());
 }
 
 void setup() {
@@ -88,6 +103,7 @@ void setup() {
   UNITY_BEGIN();
   RUN_TEST(test_live_diagnostics_combines_runtime_and_event_state);
   RUN_TEST(test_live_diagnostics_marks_stale_data);
+  RUN_TEST(test_live_diagnostics_handles_millis_rollover_for_event_age);
   UNITY_END();
 }
 
