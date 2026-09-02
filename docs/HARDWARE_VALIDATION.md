@@ -35,6 +35,7 @@ Verify:
 - Satellite count and speed update.
 - `/api/live` returns fresh packet and diagnostics information.
 - `/api/live` reports GNSS recovery monitoring state, silence, cooldown, and recovery count.
+- `/api/live` reports `uptime_ms` and geofence transition timing fields.
 - `/api/config` persists configuration changes after restart.
 - Changing GNSS recovery silence/cooldown settings takes effect without rebooting.
 
@@ -81,7 +82,25 @@ Run these tests deliberately with the receiver in a safe test setup.
 3. Confirm the recovery controller uses the new values without rebooting.
 4. Confirm recovery history remains intact after the policy change.
 
-## 7. Field test
+## 7. Geofence validation
+
+Configure a circular geofence through the dashboard or `/api/config` and use a known test location near the boundary.
+
+Verify:
+
+- Geofencing can be enabled and disabled without invalid coordinates being accepted.
+- Latitude is constrained to `-90 .. +90` and longitude to `-180 .. +180`.
+- Radius is constrained to `1 .. 100000` metres.
+- The first valid position establishes the initial inside/outside state without generating a false transition.
+- Moving across the boundary produces exactly one enter or exit event.
+- Returning across the boundary produces the corresponding reverse event.
+- `/api/live` increments `geofence_events` only for real transitions.
+- `geofence_last_event_ms` changes at a transition and `geofence_last_event_age_ms` increases afterward.
+- The dashboard displays the current geofence state and a human-readable last-transition age.
+- A GNSS no-fix/invalid update does not create a geofence transition.
+- A boundary test near the `+180/-180` longitude dateline does not produce an incorrect large-distance result.
+
+## 8. Field test
 
 Perform a stationary test followed by a moving test.
 
@@ -96,8 +115,10 @@ Record:
 - Web dashboard refresh behaviour
 - Number of recovery events
 - Recovery response time
+- Geofence transitions and transition timestamps
 - Whether any unexpected UART restart loops occur
+- Whether any false geofence events occur during GNSS signal loss
 
 ## Pass criteria
 
-A hardware validation pass requires a sustained valid fix, continuously updating diagnostics, valid downstream NMEA output, successful TCP streaming, correct recovery behaviour during an induced GNSS outage, and no unexpected resets during at least 30 minutes of normal operation.
+A hardware validation pass requires a sustained valid fix, continuously updating diagnostics, valid downstream NMEA output, successful TCP streaming, correct recovery behaviour during an induced GNSS outage, correct geofence transitions during an induced boundary crossing, and no unexpected resets during at least 30 minutes of normal operation.
