@@ -86,6 +86,18 @@ void test_live_diagnostics_marks_stale_data() {
   TEST_ASSERT_FALSE(doc["gnss_recovery"].is<JsonObject>());
 }
 
+void test_live_diagnostics_does_not_report_fresh_before_first_packet() {
+  GnssData data;
+  EventEngine events;
+  LiveDiagnosticsCounters counters;
+  counters.lastDataMs = 0;
+
+  JsonDocument doc;
+  buildLiveDiagnostics(data, events, counters, 1000, doc);
+
+  TEST_ASSERT_FALSE(doc["data_fresh"].as<bool>());
+}
+
 void test_live_diagnostics_handles_millis_rollover_for_event_age() {
   GnssData data;
   EventEngine events;
@@ -103,6 +115,7 @@ void setup() {
   UNITY_BEGIN();
   RUN_TEST(test_live_diagnostics_combines_runtime_and_event_state);
   RUN_TEST(test_live_diagnostics_marks_stale_data);
+  RUN_TEST(test_live_diagnostics_does_not_report_fresh_before_first_packet);
   RUN_TEST(test_live_diagnostics_handles_millis_rollover_for_event_age);
   UNITY_END();
 }
