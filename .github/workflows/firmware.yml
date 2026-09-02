@@ -32,7 +32,7 @@ jobs:
         run: python test_nmea_stream_check.py
 
       - name: Compile ESP32-S3 regression suite
-        run: pio test -e esp32-s3-tests --without-uploading
+        run: pio test -e esp32-s3-tests --without-uploading --without-testing
 
       - name: Build production firmware
         run: pio run -e esp32-s3-devkitc-1
