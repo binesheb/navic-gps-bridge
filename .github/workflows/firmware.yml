@@ -36,6 +36,21 @@ jobs:
       - name: Generate firmware checksum
         run: sha256sum .pio/build/esp32-s3-devkitc-1/firmware.bin > .pio/build/esp32-s3-devkitc-1/SHA256SUMS
 
+      - name: Generate build manifest
+        run: |
+          {
+            echo "repository=binesheb/navic-gps-bridge"
+            echo "commit=${GITHUB_SHA}"
+            echo "ref=${GITHUB_REF_NAME}"
+            echo "platformio=$(pio --version)"
+            echo "build_target=esp32-s3-devkitc-1"
+            echo "firmware_sha256=$(cut -d' ' -f1 .pio/build/esp32-s3-devkitc-1/SHA256SUMS)"
+            echo "firmware_bytes=$(stat -c%s .pio/build/esp32-s3-devkitc-1/firmware.bin)"
+          } > .pio/build/esp32-s3-devkitc-1/BUILD_INFO.txt
+
+      - name: Report firmware size
+        run: pio run -e esp32-s3-devkitc-1 -t size
+
       - name: Upload production firmware artifact
         uses: actions/upload-artifact@v4
         with:
@@ -43,5 +58,6 @@ jobs:
           path: |
             .pio/build/esp32-s3-devkitc-1/firmware.bin
             .pio/build/esp32-s3-devkitc-1/SHA256SUMS
+            .pio/build/esp32-s3-devkitc-1/BUILD_INFO.txt
           if-no-files-found: error
           retention-days: 14
