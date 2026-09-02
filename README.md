@@ -59,6 +59,12 @@ Policy values are bounded to prevent invalid configuration from creating restart
 
 The production lifecycle is wired into `main.cpp`. Runtime configuration changes propagate to the live recovery controller without clearing recovery history, and `/api/live` reports the current recovery state and policy.
 
+## Web authentication and OTA
+
+The device web API and OTA firmware upload can be protected with the built-in web authentication setting. For unattended or network-connected deployments, enable web authentication and configure a strong, unique password before exposing the device beyond a trusted setup network.
+
+The OTA endpoint now uses the same authentication guard as the other maintenance endpoints. Keep `webAuthEnabled` enabled when OTA is used on a shared or untrusted network; do not treat the default development configuration as a production security boundary.
+
 ## Validation
 
 After flashing, follow the [hardware validation checklist](docs/HARDWARE_VALIDATION.md) to verify GNSS parsing, live diagnostics, GPS-compatible output, TCP streaming, and recovery behaviour.
