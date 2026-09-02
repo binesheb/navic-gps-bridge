@@ -16,11 +16,13 @@ class GeofenceEngine {
   bool inside() const { return insideFence; }
   unsigned long eventCount() const { return events; }
   String lastEvent() const { return last; }
+  unsigned long lastEventAt() const { return lastEventTimestamp; }
  private:
   Geofence fence;
   bool initialized = false;
   bool insideFence = false;
   unsigned long events = 0;
+  unsigned long lastEventTimestamp = 0;
   String last = "No geofence events";
   double distance(double lat1, double lon1, double lat2, double lon2) const;
 };
