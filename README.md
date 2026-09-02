@@ -67,6 +67,12 @@ Policy values are bounded to prevent invalid configuration from creating restart
 
 The production lifecycle is wired into `main.cpp`. Runtime configuration changes propagate to the live recovery controller without clearing recovery history, and `/api/live` reports the current recovery state and policy.
 
+## Geofencing
+
+The bridge supports a configurable circular geofence with enter/exit event tracking. Coordinates and radius are validated before persistence. Live diagnostics expose the current inside/outside state, transition count, transition timestamp, and transition age. The dashboard presents the current state and a human-readable last-transition age.
+
+Use [the hardware validation checklist](docs/HARDWARE_VALIDATION.md) to perform a controlled boundary-crossing test, including a dateline-crossing regression scenario and GNSS no-fix handling.
+
 ## Web authentication and OTA
 
 The device web API and OTA firmware upload can be protected with the built-in web authentication setting. For unattended or network-connected deployments, enable web authentication and configure a strong, unique password before exposing the device beyond a trusted setup network.
@@ -79,7 +85,7 @@ The bridge accepts up to four simultaneous TCP NMEA consumers. If all four outpu
 
 ## Validation
 
-After flashing, follow the [hardware validation checklist](docs/HARDWARE_VALIDATION.md) to verify GNSS parsing, live diagnostics, GPS-compatible output, TCP streaming, and recovery behaviour.
+After flashing, follow the [hardware validation checklist](docs/HARDWARE_VALIDATION.md) to verify GNSS parsing, live diagnostics, GPS-compatible output, TCP streaming, recovery behaviour, and geofencing.
 
 For regression testing:
 
@@ -97,4 +103,6 @@ GitHub Actions runs both the ESP32-S3 regression suite and the production firmwa
 
 ## Current status
 
-The GNSS recovery subsystem is implemented, integrated into the production firmware, and covered by the embedded regression configuration. The CI path compiles embedded tests without requiring physical hardware and publishes traceable firmware artifacts. The next milestone is physical receiver validation under startup failure, cable disconnect, prolonged silence, UART recovery, and recovery cooldown conditions.
+The GNSS recovery subsystem is implemented, integrated into the production firmware, and covered by the embedded regression configuration. The geofence subsystem is integrated into configuration, live diagnostics, dashboard status, transition timing, and regression coverage. The CI path compiles embedded tests without requiring physical hardware and publishes traceable firmware artifacts.
+
+The next milestone is physical receiver validation under startup failure, cable disconnect, prolonged silence, UART recovery, recovery cooldown, and controlled geofence boundary-crossing conditions.
