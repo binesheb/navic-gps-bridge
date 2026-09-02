@@ -22,6 +22,8 @@ ESP32-S3 based universal GNSS bridge for NavIC-capable and multi-GNSS receivers.
 - Geofencing and event diagnostics
 - Captive configuration portal foundation
 - OTA firmware update support
+- Per-device Wi-Fi AP credentials derived from the ESP32-S3 eFuse MAC
+- Bounded TCP client handling with graceful rejection when all four output slots are occupied
 
 ## Hardware
 - ESP32-S3
@@ -38,6 +40,12 @@ pio device monitor
 Default GNSS UART: RX GPIO16, TX GPIO17, 9600 baud.
 Default GPS-compatible output: TX GPIO18.
 Default TCP NMEA port: 10110.
+
+### Device Wi-Fi AP
+
+When the built-in AP is enabled, the firmware no longer uses a shared hard-coded Wi-Fi password. Each ESP32-S3 generates its own AP SSID and password from its hardware eFuse MAC address and prints both to the serial monitor at boot.
+
+This prevents identical devices from sharing the same factory AP credential while keeping first-time provisioning deterministic and offline.
 
 ## GNSS recovery
 
@@ -65,6 +73,10 @@ The device web API and OTA firmware upload can be protected with the built-in we
 
 The OTA endpoint now uses the same authentication guard as the other maintenance endpoints. Keep `webAuthEnabled` enabled when OTA is used on a shared or untrusted network; do not treat the default development configuration as a production security boundary.
 
+## TCP NMEA clients
+
+The bridge accepts up to four simultaneous TCP NMEA consumers. If all four output slots are occupied, additional connections are explicitly closed instead of being left pending indefinitely. This keeps the output path bounded for unattended deployments.
+
 ## Validation
 
 After flashing, follow the [hardware validation checklist](docs/HARDWARE_VALIDATION.md) to verify GNSS parsing, live diagnostics, GPS-compatible output, TCP streaming, and recovery behaviour.
@@ -85,4 +97,4 @@ GitHub Actions runs both the ESP32-S3 regression suite and the production firmwa
 
 ## Current status
 
-The GNSS recovery subsystem is implemented, integrated into the production firmware, and covered by the embedded regression configuration. The next milestone is physical receiver validation under startup failure, cable disconnect, prolonged silence, UART recovery, and recovery cooldown conditions.
+The GNSS recovery subsystem is implemented, integrated into the production firmware, and covered by the embedded regression configuration. The CI path compiles embedded tests without requiring physical hardware and publishes traceable firmware artifacts. The next milestone is physical receiver validation under startup failure, cable disconnect, prolonged silence, UART recovery, and recovery cooldown conditions.
