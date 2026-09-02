@@ -22,6 +22,7 @@ void test_live_diagnostics_combines_runtime_and_event_state() {
   counters.wifiMode = "AP+STA";
   counters.geofenceInside = true;
   counters.geofenceEvents = 3;
+  counters.geofenceLastEventMs = 8750;
 
   GnssHealth health;
   health.receiverOnline = true;
@@ -53,6 +54,7 @@ void test_live_diagnostics_combines_runtime_and_event_state() {
   TEST_ASSERT_EQUAL_STRING("AP+STA", doc["wifi_mode"].as<const char*>());
   TEST_ASSERT_TRUE(doc["geofence_inside"].as<bool>());
   TEST_ASSERT_EQUAL_UINT(3, doc["geofence_events"].as<unsigned long>());
+  TEST_ASSERT_EQUAL_UINT(8750, doc["geofence_last_event_ms"].as<unsigned long>());
   TEST_ASSERT_TRUE(doc["events"].is<JsonObject>());
   TEST_ASSERT_TRUE(doc["gnss_health"]["receiver_online"].as<bool>());
   TEST_ASSERT_FALSE(doc["gnss_health"]["stale"].as<bool>());
@@ -76,6 +78,7 @@ void test_live_diagnostics_marks_stale_data() {
   buildLiveDiagnostics(data, events, counters, 5000, doc);
 
   TEST_ASSERT_FALSE(doc["data_fresh"].as<bool>());
+  TEST_ASSERT_EQUAL_UINT(0, doc["geofence_last_event_ms"].as<unsigned long>());
   TEST_ASSERT_FALSE(doc["gnss_health"].is<JsonObject>());
   TEST_ASSERT_FALSE(doc["gnss_recovery"].is<JsonObject>());
 }
