@@ -12,6 +12,7 @@ jobs:
   test:
     name: PlatformIO tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,17 +21,27 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
+          cache: pip
 
       - name: Install PlatformIO
         run: pip install --upgrade platformio
 
       - name: Run embedded regression tests
-        run: pio test -e esp32-s3-tests
+        run: pio test -e esp32-s3-tests --junit-output-path test-results.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: navic-gps-bridge-test-results-${{ github.sha }}
+          if-no-files-found: warn
+          path: test-results.xml
 
   build:
     name: Production firmware build
     runs-on: ubuntu-latest
     needs: test
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,12 +50,16 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
+          cache: pip
 
       - name: Install PlatformIO
         run: pip install --upgrade platformio
 
       - name: Build production firmware
         run: pio run -e esp32-s3-devkitc-1
+
+      - name: Report firmware size
+        run: pio run -e esp32-s3-devkitc-1 -t size
 
       - name: Upload firmware build artifact
         uses: actions/upload-artifact@v4
