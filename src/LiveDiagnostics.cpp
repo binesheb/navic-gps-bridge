@@ -3,6 +3,8 @@
 void buildLiveDiagnostics(const GnssData &data, const EventEngine &events,
                           const LiveDiagnosticsCounters &counters,
                           unsigned long nowMs, JsonDocument &document) {
+  const bool hasData = counters.lastDataMs != 0;
+
   document["fix"] = data.fix;
   document["latitude"] = data.latitude;
   document["longitude"] = data.longitude;
@@ -13,11 +15,9 @@ void buildLiveDiagnostics(const GnssData &data, const EventEngine &events,
   document["last_nmea"] = data.lastSentence;
   document["packets"] = counters.packets;
   document["invalid_packets"] = counters.invalidPackets;
-  document["data_fresh"] = counters.lastDataMs != 0 &&
-                            nowMs - counters.lastDataMs < 3000;
-  document["data_age_ms"] = counters.lastDataMs == 0
-      ? 0
-      : nowMs - counters.lastDataMs;
+  document["data_available"] = hasData;
+  document["data_fresh"] = hasData && nowMs - counters.lastDataMs < 3000;
+  document["data_age_ms"] = hasData ? nowMs - counters.lastDataMs : 0;
   document["wifi_mode"] = counters.wifiMode;
   document["uptime_ms"] = nowMs;
   document["geofence_inside"] = counters.geofenceInside;
