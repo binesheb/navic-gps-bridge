@@ -75,6 +75,17 @@ void test_longitude_wrap_distance_across_dateline() {
   TEST_ASSERT_EQUAL_UINT(0, engine.eventCount());
 }
 
+void test_polar_boundary_remains_finite() {
+  GeofenceEngine engine;
+  engine.set(makeFence(89.999, 0.0, 250.0));
+
+  // Near the pole, the longitude term is highly sensitive to rounding.
+  // A valid fix must still produce a deterministic inside/outside state.
+  TEST_ASSERT_FALSE(engine.update(89.999, 180.0, true, 1000));
+  TEST_ASSERT_TRUE(engine.inside());
+  TEST_ASSERT_EQUAL_UINT(0, engine.eventCount());
+}
+
 void setup() {
   delay(1000);
   UNITY_BEGIN();
@@ -83,6 +94,7 @@ void setup() {
   RUN_TEST(test_crossing_boundary_generates_enter_and_exit_events);
   RUN_TEST(test_invalid_fix_is_ignored_without_losing_last_state);
   RUN_TEST(test_longitude_wrap_distance_across_dateline);
+  RUN_TEST(test_polar_boundary_remains_finite);
   UNITY_END();
 }
 
