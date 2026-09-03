@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -23,9 +24,14 @@ jobs:
         with:
           python-version: '3.x'
           cache: pip
+          cache-dependency-path: requirements-ci.txt
 
-      - name: Install PlatformIO
-        run: pip install --upgrade platformio
+      - name: Install CI dependencies
+        run: pip install -r requirements-ci.txt
+
+      - name: Run NMEA stream checker self-tests
+        working-directory: tools
+        run: python test_nmea_stream_check.py
 
       - name: Run embedded regression tests
         run: pio test -e esp32-s3-tests --junit-output-path test-results.xml
@@ -52,12 +58,28 @@ jobs:
         with:
           python-version: '3.x'
           cache: pip
+          cache-dependency-path: requirements-ci.txt
 
-      - name: Install PlatformIO
-        run: pip install --upgrade platformio
+      - name: Install CI dependencies
+        run: pip install -r requirements-ci.txt
 
       - name: Build production firmware
         run: pio run -e esp32-s3-devkitc-1
+
+      - name: Generate firmware checksum
+        run: sha256sum .pio/build/esp32-s3-devkitc-1/firmware.bin > .pio/build/esp32-s3-devkitc-1/SHA256SUMS
+
+      - name: Generate build manifest
+        run: |
+          {
+            echo "repository=${GITHUB_REPOSITORY}"
+            echo "commit=${GITHUB_SHA}"
+            echo "ref=${GITHUB_REF_NAME}"
+            echo "platformio=$(pio --version)"
+            echo "build_target=esp32-s3-devkitc-1"
+            echo "firmware_sha256=$(cut -d' ' -f1 .pio/build/esp32-s3-devkitc-1/SHA256SUMS)"
+            echo "firmware_bytes=$(stat -c%s .pio/build/esp32-s3-devkitc-1/firmware.bin)"
+          } > .pio/build/esp32-s3-devkitc-1/BUILD_INFO.txt
 
       - name: Report firmware size
         run: pio run -e esp32-s3-devkitc-1 -t size | tee firmware-size.txt
@@ -78,3 +100,5 @@ jobs:
             .pio/build/esp32-s3-devkitc-1/firmware.bin
             .pio/build/esp32-s3-devkitc-1/bootloader.bin
             .pio/build/esp32-s3-devkitc-1/partitions.bin
+            .pio/build/esp32-s3-devkitc-1/SHA256SUMS
+            .pio/build/esp32-s3-devkitc-1/BUILD_INFO.txt
