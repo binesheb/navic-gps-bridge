@@ -27,6 +27,7 @@ void test_live_diagnostics_reports_data_age_and_freshness() {
   JsonDocument document;
   buildLiveDiagnostics(sampleData(), EventEngine(), counters, 2500, document);
 
+  TEST_ASSERT_TRUE(document["data_available"]);
   TEST_ASSERT_TRUE(document["data_fresh"]);
   TEST_ASSERT_EQUAL_UINT32(1500, document["data_age_ms"].as<unsigned long>());
   TEST_ASSERT_EQUAL_UINT32(2500, document["uptime_ms"].as<unsigned long>());
@@ -43,6 +44,7 @@ void test_live_diagnostics_age_is_rollover_safe() {
   JsonDocument document;
   buildLiveDiagnostics(sampleData(), EventEngine(), counters, 0x00000100UL, document);
 
+  TEST_ASSERT_TRUE(document["data_available"]);
   TEST_ASSERT_EQUAL_UINT32(0x200, document["data_age_ms"].as<unsigned long>());
   TEST_ASSERT_EQUAL_UINT32(0x180, document["geofence_last_event_age_ms"].as<unsigned long>());
 }
@@ -53,12 +55,14 @@ void test_live_diagnostics_distinguishes_no_data_from_stale_data() {
 
   counters.lastDataMs = 0;
   buildLiveDiagnostics(sampleData(), EventEngine(), counters, 5000, document);
+  TEST_ASSERT_FALSE(document["data_available"]);
   TEST_ASSERT_FALSE(document["data_fresh"]);
   TEST_ASSERT_EQUAL_UINT32(0, document["data_age_ms"].as<unsigned long>());
 
   counters.lastDataMs = 1000;
   document.clear();
   buildLiveDiagnostics(sampleData(), EventEngine(), counters, 5000, document);
+  TEST_ASSERT_TRUE(document["data_available"]);
   TEST_ASSERT_FALSE(document["data_fresh"]);
   TEST_ASSERT_EQUAL_UINT32(4000, document["data_age_ms"].as<unsigned long>());
 }
