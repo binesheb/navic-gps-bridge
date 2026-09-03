@@ -32,6 +32,14 @@ jobs:
           cp .pio/build/esp32-s3-devkitc-1/firmware.bin release/navic-gps-bridge-${{ github.ref_name }}.bin
           cp .pio/build/esp32-s3-devkitc-1/bootloader.bin release/bootloader.bin || true
           cp .pio/build/esp32-s3-devkitc-1/partitions.bin release/partitions.bin || true
+          cat > release/BUILD-MANIFEST.txt <<EOF
+          NavIC GPS Bridge release manifest
+          tag=${{ github.ref_name }}
+          commit=${{ github.sha }}
+          board=esp32-s3-devkitc-1
+          platformio_environment=esp32-s3-devkitc-1
+          build_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          EOF
           sha256sum release/* > release/SHA256SUMS.txt
 
       - name: Create GitHub release
