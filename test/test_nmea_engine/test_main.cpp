@@ -45,8 +45,15 @@ static void test_gsv_tracks_navic_satellites() {
 
 static void test_gsv_multi_page_sequence_replaces_previous_cycle() {
   NMEAEngine nmea;
-  TEST_ASSERT_TRUE(nmea.process("$GPGSV,2,1,05,01,40,100,30,02,30,110,25,03,20,120,20,04,10,130,15*00"));
-  TEST_ASSERT_FALSE(nmea.process("$GPGSV,2,2,05,05,05,140,10*00"));
+  TEST_ASSERT_TRUE(nmea.process("$GPGSV,2,1,05,01,40,100,30,02,30,110,25,03,20,120,20,04,10,130,15*7D"));
+  TEST_ASSERT_EQUAL_INT(4, nmea.satelliteCount());
+  TEST_ASSERT_TRUE(nmea.process("$GPGSV,2,2,05,05,05,140,10*48"));
+  TEST_ASSERT_EQUAL_INT(5, nmea.satelliteCount());
+  TEST_ASSERT_EQUAL_INT(5, nmea.satellites()[4].prn);
+
+  TEST_ASSERT_TRUE(nmea.process("$GPGSV,2,1,05,11,40,100,30,12,30,110,25,13,20,120,20,14,10,130,15*6A"));
+  TEST_ASSERT_EQUAL_INT(4, nmea.satelliteCount());
+  TEST_ASSERT_EQUAL_INT(11, nmea.satellites()[0].prn);
 }
 
 static void test_gn_talker_is_converted_to_gp_with_recomputed_checksum() {
