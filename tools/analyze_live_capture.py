@@ -4,7 +4,11 @@
 import argparse
 import csv
 import math
-import sys
+
+
+REQUIRED_FIELDS = {"http_ok", "data_available", "uptime_ms"}
+BOOLEAN_FIELDS = ("http_ok", "data_available", "data_fresh")
+NUMERIC_FIELDS = ("uptime_ms", "recovery_attempts")
 
 
 def _float(row, key):
@@ -25,12 +29,32 @@ def _bool(row, key):
 
 def analyze(path, min_http_success=95.0, min_fresh=90.0, max_recovery_attempts=None):
     with open(path, newline="", encoding="utf-8") as stream:
-        rows = list(csv.DictReader(stream))
+        reader = csv.DictReader(stream)
+        fields = set(reader.fieldnames or [])
+        rows = list(reader)
+
+    if not REQUIRED_FIELDS.issubset(fields):
+        missing = ", ".join(sorted(REQUIRED_FIELDS - fields))
+        return [f"FAIL: capture is missing required columns: {missing}"]
 
     if not rows:
         return ["FAIL: capture contains no samples"]
 
     failures = []
+    for index, row in enumerate(rows, start=2):
+        for key in BOOLEAN_FIELDS:
+            if key in fields and row.get(key, "") not in (None, "") and _bool(row, key) is None:
+                failures.append(f"FAIL: invalid {key} value on CSV line {index}")
+        for key in NUMERIC_FIELDS:
+            if key in fields and row.get(key, "") not in (None, ""):
+                try:
+                    value = _float(row, key)
+                except ValueError:
+                    failures.append(f"FAIL: invalid {key} value on CSV line {index}")
+                    continue
+                if value is not None and not math.isfinite(value):
+                    failures.append(f"FAIL: non-finite {key} value on CSV line {index}")
+
     http_known = [r for r in rows if _bool(r, "http_ok") is not None]
     http_ok = sum(_bool(r, "http_ok") is True for r in http_known)
     http_rate = 100.0 * http_ok / len(http_known) if http_known else 0.0
@@ -40,16 +64,30 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0, max_recovery_attempts=N
     fresh_known = [r for r in rows if _bool(r, "data_fresh") is not None]
     fresh = sum(_bool(r, "data_fresh") is True for r in fresh_known)
     fresh_rate = 100.0 * fresh / len(fresh_known) if fresh_known else 0.0
-    if fresh_known and fresh_rate < min_fresh:
+    if "data_fresh" in fields and not fresh_known:
+        failures.append("FAIL: capture contains no valid data_fresh samples")
+    elif fresh_known and fresh_rate < min_fresh:
         failures.append(f"FAIL: fresh-data ratio {fresh_rate:.1f}% < {min_fresh:.1f}%")
 
-    uptimes = [_float(r, "uptime_ms") for r in rows]
-    uptimes = [v for v in uptimes if v is not None and math.isfinite(v)]
+    uptimes = []
+    for row in rows:
+        try:
+            value = _float(row, "uptime_ms")
+        except ValueError:
+            continue
+        if value is not None and math.isfinite(value):
+            uptimes.append(value)
     if len(uptimes) >= 2 and any(b < a for a, b in zip(uptimes, uptimes[1:])):
         failures.append("FAIL: uptime_ms moved backwards; possible reboot/reset")
 
-    recoveries = [_float(r, "recovery_attempts") for r in rows]
-    recoveries = [v for v in recoveries if v is not None and math.isfinite(v)]
+    recoveries = []
+    for row in rows:
+        try:
+            value = _float(row, "recovery_attempts")
+        except ValueError:
+            continue
+        if value is not None and math.isfinite(value):
+            recoveries.append(value)
     max_recovery = max(recoveries) if recoveries else 0
     if max_recovery_attempts is not None and max_recovery > max_recovery_attempts:
         failures.append(
