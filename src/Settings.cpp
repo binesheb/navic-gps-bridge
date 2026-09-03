@@ -25,28 +25,34 @@ bool SettingsManager::begin() {
 }
 
 bool SettingsManager::save(const BridgeConfig &next) {
-  config = next;
-  config.gnssRecoverySilenceMs = GnssRecoveryPolicy::clampSilence(config.gnssRecoverySilenceMs);
-  config.gnssRecoveryCooldownMs = GnssRecoveryPolicy::clampCooldown(config.gnssRecoveryCooldownMs);
-  prefs.putULong("gnssBaud", config.gnssBaud);
-  prefs.putULong("outBaud", config.gpsOutBaud);
-  prefs.putUShort("tcpPort", config.tcpPort);
-  prefs.putBool("gpsCompat", config.gpsCompatibility);
-  prefs.putBool("apEnabled", config.apEnabled);
-  prefs.putBool("staEnabled", config.staEnabled);
-  prefs.putString("staSsid", config.staSsid);
-  prefs.putString("staPass", config.staPassword);
-  prefs.putBool("webAuth", config.webAuthEnabled);
-  prefs.putString("webUser", config.webUsername);
-  prefs.putString("webPass", config.webPassword);
-  prefs.putString("outProfile", config.outputProfile);
-  prefs.putBool("geoEnabled", config.geofenceEnabled);
-  prefs.putDouble("geoLat", config.geofenceLatitude);
-  prefs.putDouble("geoLon", config.geofenceLongitude);
-  prefs.putFloat("geoRadius", config.geofenceRadiusM);
-  prefs.putULong("recSilence", config.gnssRecoverySilenceMs);
-  prefs.putULong("recCooldown", config.gnssRecoveryCooldownMs);
-  return true;
+  BridgeConfig candidate = next;
+  candidate.gnssRecoverySilenceMs = GnssRecoveryPolicy::clampSilence(candidate.gnssRecoverySilenceMs);
+  candidate.gnssRecoveryCooldownMs = GnssRecoveryPolicy::clampCooldown(candidate.gnssRecoveryCooldownMs);
+
+  // Preferences::put* returns the number of bytes written. Treat a failed
+  // write as a failed save instead of reporting success to the API caller.
+  bool ok = true;
+  ok = prefs.putULong("gnssBaud", candidate.gnssBaud) > 0 && ok;
+  ok = prefs.putULong("outBaud", candidate.gpsOutBaud) > 0 && ok;
+  ok = prefs.putUShort("tcpPort", candidate.tcpPort) > 0 && ok;
+  ok = prefs.putBool("gpsCompat", candidate.gpsCompatibility) > 0 && ok;
+  ok = prefs.putBool("apEnabled", candidate.apEnabled) > 0 && ok;
+  ok = prefs.putBool("staEnabled", candidate.staEnabled) > 0 && ok;
+  ok = prefs.putString("staSsid", candidate.staSsid) > 0 && ok;
+  ok = prefs.putString("staPass", candidate.staPassword) > 0 && ok;
+  ok = prefs.putBool("webAuth", candidate.webAuthEnabled) > 0 && ok;
+  ok = prefs.putString("webUser", candidate.webUsername) > 0 && ok;
+  ok = prefs.putString("webPass", candidate.webPassword) > 0 && ok;
+  ok = prefs.putString("outProfile", candidate.outputProfile) > 0 && ok;
+  ok = prefs.putBool("geoEnabled", candidate.geofenceEnabled) > 0 && ok;
+  ok = prefs.putDouble("geoLat", candidate.geofenceLatitude) > 0 && ok;
+  ok = prefs.putDouble("geoLon", candidate.geofenceLongitude) > 0 && ok;
+  ok = prefs.putFloat("geoRadius", candidate.geofenceRadiusM) > 0 && ok;
+  ok = prefs.putULong("recSilence", candidate.gnssRecoverySilenceMs) > 0 && ok;
+  ok = prefs.putULong("recCooldown", candidate.gnssRecoveryCooldownMs) > 0 && ok;
+
+  if (ok) config = candidate;
+  return ok;
 }
 
 void SettingsManager::reset() {
