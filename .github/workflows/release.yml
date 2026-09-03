@@ -20,7 +20,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.11.9'
           cache: pip
           cache-dependency-path: requirements-ci.txt
 
@@ -54,7 +54,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.11.9'
           cache: pip
           cache-dependency-path: requirements-ci.txt
 
@@ -76,6 +76,7 @@ jobs:
             echo "commit=${{ github.sha }}"
             echo "board=esp32-s3-devkitc-1"
             echo "platformio_environment=esp32-s3-devkitc-1"
+            echo "python=$(python --version)"
             echo "platformio=$(pio --version)"
             echo "firmware_bytes=$(stat -c%s release/navic-gps-bridge-${{ github.ref_name }}.bin)"
             echo "build_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
