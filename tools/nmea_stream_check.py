@@ -6,7 +6,7 @@ Usage:
 
 The checker is intentionally dependency-free so it can be used on a laptop in
 front of a field-test bridge. It validates NMEA checksums and reports sentence
-counts, invalid frames, and GPS-compatible talker IDs.
+counts, talker IDs, and invalid frames.
 """
 
 from __future__ import annotations
@@ -33,6 +33,16 @@ def checksum_ok(sentence: str) -> bool:
         return False
 
 
+def sentence_kind(sentence: str) -> str | None:
+    """Return the five-character NMEA formatter, e.g. GPRMC or GNGGA."""
+    if len(sentence) < 6 or sentence[0] != "$":
+        return None
+    formatter = sentence[1:6]
+    if len(formatter) != 5 or not formatter.isalnum():
+        return None
+    return formatter
+
+
 def main() -> int:
     if len(sys.argv) < 2:
         print("usage: nmea_stream_check.py HOST [PORT] [SECONDS]", file=sys.stderr)
@@ -43,6 +53,7 @@ def main() -> int:
     duration = float(sys.argv[3]) if len(sys.argv) > 3 else 30.0
 
     counts: Counter[str] = Counter()
+    talkers: Counter[str] = Counter()
     valid = invalid = 0
     deadline = time.monotonic() + duration
 
@@ -65,13 +76,19 @@ def main() -> int:
                     continue
                 if checksum_ok(sentence):
                     valid += 1
-                    if len(sentence) >= 6 and sentence[0] == "$":
-                        counts[sentence[1:6]] += 1
+                    kind = sentence_kind(sentence)
+                    if kind:
+                        counts[kind] += 1
+                        talkers[kind[:2]] += 1
                 else:
                     invalid += 1
 
     total = valid + invalid
     print(f"Sentences: {total}  valid: {valid}  invalid: {invalid}")
+    if talkers:
+        print("Talkers:")
+        for talker, count in talkers.most_common():
+            print(f"  {talker}: {count}")
     if counts:
         print("Types:")
         for kind, count in counts.most_common():
