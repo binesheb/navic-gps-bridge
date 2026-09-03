@@ -43,6 +43,12 @@ static void test_gsv_tracks_navic_satellites() {
   TEST_ASSERT_EQUAL_INT(42, sat[0].snr);
 }
 
+static void test_gsv_multi_page_sequence_replaces_previous_cycle() {
+  NMEAEngine nmea;
+  TEST_ASSERT_TRUE(nmea.process("$GPGSV,2,1,05,01,40,100,30,02,30,110,25,03,20,120,20,04,10,130,15*00"));
+  TEST_ASSERT_FALSE(nmea.process("$GPGSV,2,2,05,05,05,140,10*00"));
+}
+
 static void test_gn_talker_is_converted_to_gp_with_recomputed_checksum() {
   NMEAEngine nmea;
   const String converted = nmea.gpsCompatible("$GNRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6B");
@@ -56,6 +62,7 @@ void setup() {
   RUN_TEST(test_gga_updates_fix_quality_altitude_and_hdop);
   RUN_TEST(test_invalid_checksum_is_rejected);
   RUN_TEST(test_gsv_tracks_navic_satellites);
+  RUN_TEST(test_gsv_multi_page_sequence_replaces_previous_cycle);
   RUN_TEST(test_gn_talker_is_converted_to_gp_with_recomputed_checksum);
   UNITY_END();
 }
