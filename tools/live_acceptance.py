@@ -26,6 +26,8 @@ def main(argv=None):
     parser.add_argument("--min-http-success", type=float, default=95.0)
     parser.add_argument("--min-fresh", type=float, default=90.0)
     parser.add_argument("--max-recovery-attempts", type=int)
+    parser.add_argument("--min-recovery-attempts", type=int,
+                        help="Require at least this many observed recovery attempts")
     parser.add_argument("--max-stale-samples", type=int, default=60)
     args = parser.parse_args(argv)
 
@@ -35,6 +37,11 @@ def main(argv=None):
         parser.error("percentage thresholds must be between 0 and 100")
     if args.max_recovery_attempts is not None and args.max_recovery_attempts < 0:
         parser.error("max-recovery-attempts must be >= 0")
+    if args.min_recovery_attempts is not None and args.min_recovery_attempts < 0:
+        parser.error("min-recovery-attempts must be >= 0")
+    if (args.min_recovery_attempts is not None and args.max_recovery_attempts is not None
+            and args.min_recovery_attempts > args.max_recovery_attempts):
+        parser.error("min-recovery-attempts cannot exceed max-recovery-attempts")
     if args.max_stale_samples < 0:
         parser.error("max-stale-samples must be >= 0")
 
@@ -57,6 +64,7 @@ def main(argv=None):
         args.min_http_success,
         args.min_fresh,
         args.max_recovery_attempts,
+        args.min_recovery_attempts,
         args.max_stale_samples,
     )
     return 1 if verdict else 0
