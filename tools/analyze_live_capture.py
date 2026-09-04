@@ -29,6 +29,13 @@ def _bool(row, key):
     return None
 
 
+def _bool_failure(row, key, line):
+    raw = row.get(key, "")
+    if raw is None or not str(raw).strip():
+        return f"FAIL: missing {key} value on CSV line {line}"
+    return f"FAIL: invalid {key} value on CSV line {line}"
+
+
 def _max_consecutive_stale(rows):
     longest = current = 0
     for row in rows:
@@ -74,12 +81,12 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0,
     for index, row in enumerate(rows, start=2):
         http_ok = _bool(row, "http_ok")
         if http_ok is None:
-            failures.append(f"FAIL: invalid or missing http_ok value on CSV line {index}")
+            failures.append(_bool_failure(row, "http_ok", index))
             continue
         # Failed HTTP requests intentionally have blank payload fields.
         for key in ("data_available", "data_fresh"):
             if http_ok and _bool(row, key) is None:
-                failures.append(f"FAIL: invalid or missing {key} value on CSV line {index}")
+                failures.append(_bool_failure(row, key, index))
         for key in NUMERIC_FIELDS:
             if row.get(key, "") not in (None, ""):
                 try:
