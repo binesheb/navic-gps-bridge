@@ -82,6 +82,14 @@ class AnalyzeLiveCaptureTests(unittest.TestCase):
         ])
         self.assertTrue(any("elapsed_s moved backwards" in failure for failure in analyze(path)))
 
+    def test_recovery_counter_regression_fails(self):
+        path = self._write([
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "1000", "recovery_attempts": "3", "data_available": "True", "elapsed_s": "0.0"},
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "2000", "recovery_attempts": "2", "data_available": "True", "elapsed_s": "1.0"},
+        ])
+        failures = analyze(path)
+        self.assertTrue(any("recovery_attempts moved backwards" in failure for failure in failures))
+
     def test_recovery_limit_uses_attempts_during_capture(self):
         path = self._write([
             {"http_ok": "True", "data_fresh": "True", "uptime_ms": "1000", "recovery_attempts": "4", "data_available": "False", "elapsed_s": "0.0"},
