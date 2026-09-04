@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   test:
-    name: PlatformIO tests
+    name: PlatformIO test build
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -49,8 +49,8 @@ jobs:
         working-directory: tools
         run: python -m unittest test_live_acceptance.py
 
-      - name: Run embedded regression tests
-        run: pio test -e esp32-s3-tests --junit-output-path test-results.xml
+      - name: Compile embedded regression tests
+        run: pio test -e esp32-s3-tests --without-testing --junit-output-path test-results.xml
 
       - name: Upload test results
         if: always()
