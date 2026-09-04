@@ -39,6 +39,24 @@ class AnalyzeLiveCaptureTests(unittest.TestCase):
         ])
         self.assertTrue(any("recovery attempts" in failure for failure in analyze(path, max_recovery_attempts=3)))
 
+    def test_prolonged_stale_period_is_enforced(self):
+        path = self._write([
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "1000", "recovery_attempts": "0", "data_available": "True"},
+            {"http_ok": "True", "data_fresh": "False", "uptime_ms": "2000", "recovery_attempts": "1", "data_available": "False"},
+            {"http_ok": "True", "data_fresh": "False", "uptime_ms": "3000", "recovery_attempts": "1", "data_available": "False"},
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "4000", "recovery_attempts": "1", "data_available": "True"},
+        ])
+        failures = analyze(path, min_fresh=50.0, max_stale_samples=1)
+        self.assertTrue(any("consecutive stale samples" in failure for failure in failures))
+
+    def test_stale_period_resets_after_fresh_sample(self):
+        path = self._write([
+            {"http_ok": "True", "data_fresh": "False", "uptime_ms": "1000", "recovery_attempts": "0", "data_available": "False"},
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "2000", "recovery_attempts": "0", "data_available": "True"},
+            {"http_ok": "True", "data_fresh": "False", "uptime_ms": "3000", "recovery_attempts": "0", "data_available": "False"},
+        ])
+        self.assertEqual(analyze(path, min_fresh=30.0, max_stale_samples=1), [])
+
     def test_missing_required_columns_fails(self):
         path = self._write(
             [{"http_ok": "True", "uptime_ms": "1000"}],
