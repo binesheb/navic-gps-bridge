@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Self-test for the dependency-free live NMEA checker."""
 
-from nmea_stream_check import checksum_ok, sentence_kind
+from collections import Counter
+
+from nmea_stream_check import build_report, checksum_ok, sentence_kind
 
 
 def test_known_valid_sentence() -> None:
@@ -15,6 +17,7 @@ def test_bad_checksum_is_rejected() -> None:
 def test_malformed_sentence_is_rejected() -> None:
     assert not checksum_ok("GPRMC,123519,A*00")
     assert not checksum_ok("$GPRMC,123519,A*0")
+    assert not checksum_ok("$GPRMC,123519,A*6Aextra")
 
 
 def test_sentence_kind_extracts_talker_and_type() -> None:
@@ -27,10 +30,42 @@ def test_sentence_kind_rejects_malformed_prefix() -> None:
     assert sentence_kind("$GP,123519,A*00") is None
 
 
+def test_report_passes_required_types_and_minimum() -> None:
+    report, failures = build_report(
+        10, 0, Counter({"GPRMC": 6, "GPGGA": 4}), Counter({"GP": 10}),
+        30.0, 10, ["GPRMC", "GPGGA"],
+    )
+    assert report["passed"] is True
+    assert report["valid_percent"] == 100.0
+    assert failures == []
+
+
+def test_report_rejects_missing_required_type() -> None:
+    report, failures = build_report(
+        10, 0, Counter({"GPRMC": 10}), Counter({"GP": 10}),
+        30.0, 1, ["GPRMC", "GPGGA"],
+    )
+    assert report["passed"] is False
+    assert any("GPGGA" in failure for failure in failures)
+
+
+def test_report_rejects_invalid_checksum() -> None:
+    report, failures = build_report(
+        9, 1, Counter({"GPRMC": 9}), Counter({"GP": 9}),
+        30.0, 1, [],
+    )
+    assert report["passed"] is False
+    assert report["invalid_sentences"] == 1
+    assert any("checksum" in failure for failure in failures)
+
+
 if __name__ == "__main__":
     test_known_valid_sentence()
     test_bad_checksum_is_rejected()
     test_malformed_sentence_is_rejected()
     test_sentence_kind_extracts_talker_and_type()
     test_sentence_kind_rejects_malformed_prefix()
+    test_report_passes_required_types_and_minimum()
+    test_report_rejects_missing_required_type()
+    test_report_rejects_invalid_checksum()
     print("PASS: nmea_stream_check self-tests")
