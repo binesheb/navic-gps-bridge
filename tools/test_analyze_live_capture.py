@@ -26,6 +26,22 @@ class AnalyzeLiveCaptureTests(unittest.TestCase):
         ])
         self.assertEqual(analyze(path), [])
 
+    def test_failed_http_sample_does_not_create_false_telemetry_failure(self):
+        path = self._write([
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "1000", "recovery_attempts": "0", "data_available": "True", "elapsed_s": "0.0"},
+            {"http_ok": "False", "data_fresh": "", "uptime_ms": "1001", "recovery_attempts": "0", "data_available": "", "elapsed_s": "1.0"},
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "2000", "recovery_attempts": "0", "data_available": "True", "elapsed_s": "2.0"},
+        ])
+        self.assertEqual(analyze(path, min_http_success=60.0), [])
+
+    def test_http_failure_rate_is_enforced(self):
+        path = self._write([
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "1000", "recovery_attempts": "0", "data_available": "True", "elapsed_s": "0.0"},
+            {"http_ok": "False", "data_fresh": "", "uptime_ms": "1001", "recovery_attempts": "0", "data_available": "", "elapsed_s": "1.0"},
+        ])
+        failures = analyze(path, min_http_success=75.0)
+        self.assertTrue(any("HTTP success" in failure for failure in failures))
+
     def test_uptime_regression_fails(self):
         path = self._write([
             {"http_ok": "True", "data_fresh": "True", "uptime_ms": "2000", "recovery_attempts": "0", "data_available": "True", "elapsed_s": "0.0"},
