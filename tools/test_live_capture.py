@@ -55,6 +55,23 @@ class LiveCaptureTests(unittest.TestCase):
             self.assertEqual(rows[0]["http_ok"], "True")
             self.assertEqual(rows[0]["data_available"], "True")
 
+    @patch("live_capture.fetch_live")
+    @patch("live_capture.time.sleep")
+    @patch("live_capture.time.monotonic", side_effect=[0.0, 0.0, 1.0])
+    def test_bounded_capture_records_sample_at_or_after_duration(self, monotonic, sleep, fetch_live):
+        fetch_live.return_value = (200, {"data_available": True, "fix": True, "packets": 1})
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "capture.csv"
+            samples, failures = live_capture.capture(
+                "http://bridge", str(output), interval=0.1, duration=0.5, timeout=1
+            )
+            self.assertEqual(samples, 1)
+            self.assertEqual(failures, 0)
+            with output.open(newline="", encoding="utf-8") as stream:
+                rows = list(csv.DictReader(stream))
+            self.assertGreaterEqual(float(rows[-1]["elapsed_s"]), 0.5)
+            sleep.assert_not_called()
+
     def test_invalid_capture_arguments_are_rejected(self):
         with self.assertRaises(SystemExit):
             live_capture.main(["http://bridge", "out.csv", "--interval", "0"])

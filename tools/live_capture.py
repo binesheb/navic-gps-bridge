@@ -107,11 +107,10 @@ def capture(base_url, output, interval, duration, username=None, password=None, 
     with open(output, "w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=FIELDS)
         writer.writeheader()
-        while deadline is None or time.monotonic() < deadline:
+        while True:
             sample_started = time.monotonic()
             row = {field: "" for field in FIELDS}
             row["timestamp_utc"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            row["elapsed_s"] = f"{sample_started - started:.3f}"
             try:
                 status, payload = fetch_live(url, username, password, timeout)
                 row["http_ok"] = status == 200
@@ -121,10 +120,15 @@ def capture(base_url, output, interval, duration, username=None, password=None, 
                 failures += 1
                 row["http_ok"] = False
                 row["error"] = str(exc)
+
+            # Timestamp the completed observation so the final sample can
+            # prove that a bounded capture actually reached its duration.
+            elapsed = time.monotonic() - started
+            row["elapsed_s"] = f"{elapsed:.3f}"
             writer.writerow(row)
             stream.flush()
 
-            if deadline is not None and time.monotonic() >= deadline:
+            if deadline is None or elapsed >= duration:
                 break
             sleep_for = interval - (time.monotonic() - sample_started)
             if sleep_for > 0:
