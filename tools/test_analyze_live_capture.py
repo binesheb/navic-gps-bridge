@@ -71,11 +71,23 @@ class AnalyzeLiveCaptureTests(unittest.TestCase):
         ])
         self.assertTrue(any("invalid http_ok" in failure for failure in analyze(path)))
 
+    def test_missing_boolean_value_fails(self):
+        path = self._write([
+            {"http_ok": "True", "data_fresh": "", "uptime_ms": "1000", "recovery_attempts": "0", "data_available": "True"},
+        ])
+        self.assertTrue(any("missing data_fresh" in failure for failure in analyze(path)))
+
     def test_invalid_numeric_value_fails_without_crashing(self):
         path = self._write([
             {"http_ok": "True", "data_fresh": "True", "uptime_ms": "not-a-number", "recovery_attempts": "0", "data_available": "True"},
         ])
         self.assertTrue(any("invalid uptime_ms" in failure for failure in analyze(path)))
+
+    def test_missing_uptime_value_fails(self):
+        path = self._write([
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "", "recovery_attempts": "0", "data_available": "True"},
+        ])
+        self.assertTrue(any("missing uptime_ms" in failure for failure in analyze(path)))
 
 
 if __name__ == "__main__":
