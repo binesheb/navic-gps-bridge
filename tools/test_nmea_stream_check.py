@@ -33,7 +33,7 @@ def test_sentence_kind_rejects_malformed_prefix() -> None:
 def test_report_passes_required_types_and_minimum() -> None:
     report, failures = build_report(
         10, 0, Counter({"GPRMC": 6, "GPGGA": 4}), Counter({"GP": 10}),
-        30.0, 10, 100.0, ["GPRMC", "GPGGA"],
+        30.0, 10, 100.0, ["GPRMC", "GPGGA"], 30.0,
     )
     assert report["passed"] is True
     assert report["valid_percent"] == 100.0
@@ -43,7 +43,7 @@ def test_report_passes_required_types_and_minimum() -> None:
 def test_report_rejects_missing_required_type() -> None:
     report, failures = build_report(
         10, 0, Counter({"GPRMC": 10}), Counter({"GP": 10}),
-        30.0, 1, 100.0, ["GPRMC", "GPGGA"],
+        30.0, 1, 100.0, ["GPRMC", "GPGGA"], 0.0,
     )
     assert report["passed"] is False
     assert any("GPGGA" in failure for failure in failures)
@@ -52,7 +52,7 @@ def test_report_rejects_missing_required_type() -> None:
 def test_report_rejects_invalid_checksum() -> None:
     report, failures = build_report(
         9, 1, Counter({"GPRMC": 9}), Counter({"GP": 9}),
-        30.0, 1, 90.0, [],
+        30.0, 1, 90.0, [], 30.0,
     )
     assert report["passed"] is False
     assert report["invalid_sentences"] == 1
@@ -62,7 +62,7 @@ def test_report_rejects_invalid_checksum() -> None:
 def test_report_rejects_low_valid_percentage() -> None:
     report, failures = build_report(
         8, 2, Counter({"GPRMC": 8}), Counter({"GP": 8}),
-        30.0, 1, 90.0, [],
+        30.0, 1, 90.0, [], 30.0,
     )
     assert report["valid_percent"] == 80.0
     assert report["passed"] is False
@@ -72,7 +72,27 @@ def test_report_rejects_low_valid_percentage() -> None:
 def test_report_accepts_configured_validity_threshold() -> None:
     report, failures = build_report(
         9, 1, Counter({"GPRMC": 9}), Counter({"GP": 9}),
-        30.0, 1, 90.0, [],
+        30.0, 1, 90.0, [], 30.0,
+    )
+    assert report["passed"] is True
+    assert failures == []
+
+
+def test_report_rejects_short_capture() -> None:
+    report, failures = build_report(
+        10, 0, Counter({"GPRMC": 10}), Counter({"GP": 10}),
+        12.5, 1, 100.0, [], 30.0,
+    )
+    assert report["passed"] is False
+    assert report["duration_s"] == 12.5
+    assert report["min_duration_s"] == 30.0
+    assert any("capture duration" in failure for failure in failures)
+
+
+def test_report_accepts_capture_at_duration_threshold() -> None:
+    report, failures = build_report(
+        10, 0, Counter({"GPRMC": 10}), Counter({"GP": 10}),
+        30.0, 1, 100.0, [], 30.0,
     )
     assert report["passed"] is True
     assert failures == []
@@ -89,4 +109,6 @@ if __name__ == "__main__":
     test_report_rejects_invalid_checksum()
     test_report_rejects_low_valid_percentage()
     test_report_accepts_configured_validity_threshold()
+    test_report_rejects_short_capture()
+    test_report_accepts_capture_at_duration_threshold()
     print("PASS: nmea_stream_check self-tests")
