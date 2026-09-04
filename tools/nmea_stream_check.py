@@ -4,24 +4,26 @@
 Usage:
   python tools/nmea_stream_check.py HOST [PORT] [SECONDS]
 
-The checker is intentionally dependency-free so it can be used on a laptop in
-front of a field-test bridge. It validates NMEA checksums and reports sentence
-counts, talker IDs, and invalid frames.
+The checker is dependency-free so it can be used on a laptop in front of a
+field-test bridge. It validates NMEA checksums and can enforce minimum stream
+quality and required sentence types. Optional JSON output preserves a
+machine-readable field-test verdict.
 """
 
 from __future__ import annotations
 
+import argparse
+import json
 import socket
-import sys
 import time
 from collections import Counter
 
 
 def checksum_ok(sentence: str) -> bool:
+    """Return True only when the complete NMEA checksum field is valid."""
     if not sentence.startswith("$") or "*" not in sentence:
         return False
     body, supplied = sentence[1:].split("*", 1)
-    supplied = supplied[:2]
     if len(supplied) != 2:
         return False
     value = 0
@@ -43,48 +45,120 @@ def sentence_kind(sentence: str) -> str | None:
     return formatter
 
 
-def main() -> int:
-    if len(sys.argv) < 2:
-        print("usage: nmea_stream_check.py HOST [PORT] [SECONDS]", file=sys.stderr)
-        return 2
+def build_report(valid: int, invalid: int, counts: Counter[str],
+                 talkers: Counter[str], duration: float,
+                 min_sentences: int, required_types: list[str]) -> tuple[dict, list[str]]:
+    total = valid + invalid
+    failures: list[str] = []
+    if total == 0:
+        failures.append("FAIL: no NMEA sentences received")
+    if invalid:
+        failures.append("FAIL: invalid NMEA checksum(s) detected")
+    if total < min_sentences:
+        failures.append(f"FAIL: received {total} sentence(s) < {min_sentences}")
+    missing_types = [kind for kind in required_types if counts[kind] == 0]
+    if missing_types:
+        failures.append("FAIL: required sentence type(s) missing: " + ", ".join(missing_types))
 
-    host = sys.argv[1]
-    port = int(sys.argv[2]) if len(sys.argv) > 2 else 10110
-    duration = float(sys.argv[3]) if len(sys.argv) > 3 else 30.0
+    report = {
+        "duration_s": duration,
+        "sentences": total,
+        "valid_sentences": valid,
+        "invalid_sentences": invalid,
+        "valid_percent": round(100.0 * valid / total, 3) if total else 0.0,
+        "talkers": dict(talkers),
+        "types": dict(counts),
+        "min_sentences": min_sentences,
+        "required_types": required_types,
+        "passed": not failures,
+        "failures": failures,
+    }
+    return report, failures
+
+
+def write_report(path: str, report: dict) -> None:
+    with open(path, "w", encoding="utf-8") as stream:
+        json.dump(report, stream, indent=2, sort_keys=True)
+        stream.write("\n")
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("host")
+    parser.add_argument("port", nargs="?", type=int, default=10110)
+    parser.add_argument("seconds", nargs="?", type=float, default=30.0)
+    parser.add_argument("--min-sentences", type=int, default=1,
+                        help="Minimum total NMEA sentences required (default: 1)")
+    parser.add_argument("--require-type", action="append", default=[],
+                        help="Require a sentence formatter such as GPRMC; repeatable")
+    parser.add_argument("--json-output", help="Optional machine-readable JSON verdict path")
+    args = parser.parse_args(argv)
+
+    if not 1 <= args.port <= 65535:
+        parser.error("port must be between 1 and 65535")
+    if args.seconds <= 0:
+        parser.error("seconds must be > 0")
+    if args.min_sentences < 0:
+        parser.error("min-sentences must be >= 0")
+    required_types = [value.upper() for value in args.require_type]
+    if any(len(value) != 5 or not value.isalnum() for value in required_types):
+        parser.error("require-type values must be five-character alphanumeric NMEA formatters")
 
     counts: Counter[str] = Counter()
     talkers: Counter[str] = Counter()
     valid = invalid = 0
-    deadline = time.monotonic() + duration
+    deadline = time.monotonic() + args.seconds
 
-    print(f"Connecting to {host}:{port} for {duration:g}s...")
-    with socket.create_connection((host, port), timeout=5) as sock:
-        sock.settimeout(1.0)
-        buffer = b""
-        while time.monotonic() < deadline:
-            try:
-                chunk = sock.recv(4096)
-            except socket.timeout:
-                continue
-            if not chunk:
-                break
-            buffer += chunk
-            while b"\n" in buffer:
-                raw, buffer = buffer.split(b"\n", 1)
-                sentence = raw.decode("ascii", errors="replace").strip("\r")
-                if not sentence:
+    print(f"Connecting to {args.host}:{args.port} for {args.seconds:g}s...")
+    try:
+        with socket.create_connection((args.host, args.port), timeout=5) as sock:
+            sock.settimeout(1.0)
+            buffer = b""
+            while time.monotonic() < deadline:
+                try:
+                    chunk = sock.recv(4096)
+                except socket.timeout:
                     continue
-                if checksum_ok(sentence):
-                    valid += 1
-                    kind = sentence_kind(sentence)
-                    if kind:
-                        counts[kind] += 1
-                        talkers[kind[:2]] += 1
-                else:
-                    invalid += 1
+                if not chunk:
+                    break
+                buffer += chunk
+                while b"\n" in buffer:
+                    raw, buffer = buffer.split(b"\n", 1)
+                    sentence = raw.decode("ascii", errors="replace").strip("\r")
+                    if not sentence:
+                        continue
+                    if checksum_ok(sentence):
+                        valid += 1
+                        kind = sentence_kind(sentence)
+                        if kind:
+                            counts[kind] += 1
+                            talkers[kind[:2]] += 1
+                    else:
+                        invalid += 1
+    except (OSError, ValueError) as exc:
+        report = {
+            "duration_s": args.seconds,
+            "sentences": valid + invalid,
+            "valid_sentences": valid,
+            "invalid_sentences": invalid,
+            "valid_percent": 0.0,
+            "talkers": dict(talkers),
+            "types": dict(counts),
+            "min_sentences": args.min_sentences,
+            "required_types": required_types,
+            "passed": False,
+            "failures": [f"FAIL: unable to connect/read NMEA stream: {exc}"],
+        }
+        if args.json_output:
+            write_report(args.json_output, report)
+        print(report["failures"][0])
+        return 1
 
-    total = valid + invalid
-    print(f"Sentences: {total}  valid: {valid}  invalid: {invalid}")
+    report, failures = build_report(
+        valid, invalid, counts, talkers, args.seconds,
+        args.min_sentences, required_types,
+    )
+    print(f"Sentences: {report['sentences']}  valid: {valid}  invalid: {invalid}")
     if talkers:
         print("Talkers:")
         for talker, count in talkers.most_common():
@@ -93,15 +167,14 @@ def main() -> int:
         print("Types:")
         for kind, count in counts.most_common():
             print(f"  {kind}: {count}")
-
-    if total == 0:
-        print("FAIL: no NMEA sentences received")
-        return 1
-    if invalid:
-        print("FAIL: invalid NMEA checksum(s) detected")
-        return 1
-    print("PASS: NMEA stream received with valid checksums")
-    return 0
+    if failures:
+        for failure in failures:
+            print(failure)
+    else:
+        print("PASS: NMEA stream satisfies the requested checks")
+    if args.json_output:
+        write_report(args.json_output, report)
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":
