@@ -91,6 +91,21 @@ For downstream TCP validation, use `tools/nmea_stream_check.py`. It can enforce 
 
 For API stability validation, use `tools/live_acceptance.py` to capture `/api/live` telemetry and run the deterministic analyzer with HTTP success, freshness, recovery-attempt, stale-sample, and duration thresholds.
 
+### Reproducible field evidence bundle
+
+Keep the machine-readable NMEA verdict, `/api/live` capture, serial log, and exact firmware commit together. The dependency-free collector copies selected evidence files and writes `EVIDENCE_MANIFEST.json` with byte sizes and SHA-256 hashes:
+
+```bash
+python tools/collect_field_evidence.py evidence/ \
+  --file nmea-verdict.json=nmea-verdict.json \
+  --file live.csv=live.csv \
+  --file serial.log=serial.log \
+  --firmware-commit YOUR_FIRMWARE_COMMIT \
+  --device bridge-01
+```
+
+The manifest is intentionally separate from the hashed evidence files, avoiding a self-referential checksum and making the evidence directory straightforward to archive and audit.
+
 For regression testing:
 
 ```bash
@@ -107,6 +122,6 @@ GitHub Actions runs the ESP32-S3 regression build and the production firmware bu
 
 ## Current status
 
-The GNSS recovery subsystem is implemented, integrated into the production firmware, and covered by the embedded regression configuration. The geofence subsystem is integrated into configuration, live diagnostics, dashboard status, transition timing, and regression coverage. The CI path compiles embedded tests without requiring physical hardware and publishes traceable firmware artifacts with integrity metadata.
+The GNSS recovery subsystem is implemented, integrated into the production firmware, and covered by the embedded regression configuration. The geofence subsystem is integrated into configuration, live diagnostics, dashboard status, transition timing, and regression coverage. The CI path compiles embedded tests without requiring physical hardware and publishes traceable firmware artifacts with integrity metadata. Field-test evidence can now be packaged with a deterministic SHA-256 manifest.
 
-The next milestone is physical receiver validation under startup failure, cable disconnect, prolonged silence, UART recovery, recovery cooldown, and controlled geofence boundary-crossing conditions. Keep the NMEA JSON verdict, `/api/live` capture, serial log, and exact firmware commit/tag together as the evidence set for each hardware/receiver combination.
+The next milestone is physical receiver validation under startup failure, cable disconnect, prolonged silence, UART recovery, recovery cooldown, and controlled geofence boundary-crossing conditions. Keep the generated evidence bundle together for each hardware/receiver combination.
