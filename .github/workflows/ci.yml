@@ -82,8 +82,10 @@ jobs:
       - name: Build production firmware
         run: pio run -e esp32-s3-devkitc-1
 
-      - name: Generate firmware checksum
-        run: sha256sum .pio/build/esp32-s3-devkitc-1/firmware.bin > .pio/build/esp32-s3-devkitc-1/SHA256SUMS
+      - name: Generate firmware checksums
+        run: |
+          cd .pio/build/esp32-s3-devkitc-1
+          sha256sum firmware.bin bootloader.bin partitions.bin > SHA256SUMS
 
       - name: Generate build manifest
         run: |
@@ -94,8 +96,12 @@ jobs:
             echo "python=$(python --version)"
             echo "platformio=$(pio --version)"
             echo "build_target=esp32-s3-devkitc-1"
-            echo "firmware_sha256=$(cut -d' ' -f1 .pio/build/esp32-s3-devkitc-1/SHA256SUMS)"
+            echo "firmware_sha256=$(sha256sum .pio/build/esp32-s3-devkitc-1/firmware.bin | cut -d' ' -f1)"
             echo "firmware_bytes=$(stat -c%s .pio/build/esp32-s3-devkitc-1/firmware.bin)"
+            echo "bootloader_sha256=$(sha256sum .pio/build/esp32-s3-devkitc-1/bootloader.bin | cut -d' ' -f1)"
+            echo "bootloader_bytes=$(stat -c%s .pio/build/esp32-s3-devkitc-1/bootloader.bin)"
+            echo "partitions_sha256=$(sha256sum .pio/build/esp32-s3-devkitc-1/partitions.bin | cut -d' ' -f1)"
+            echo "partitions_bytes=$(stat -c%s .pio/build/esp32-s3-devkitc-1/partitions.bin)"
           } > .pio/build/esp32-s3-devkitc-1/BUILD_INFO.txt
 
       - name: Verify firmware bundle integrity
