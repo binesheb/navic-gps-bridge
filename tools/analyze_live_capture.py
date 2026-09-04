@@ -3,11 +3,10 @@
 
 import argparse
 import csv
+import json
 import math
 
-
 REQUIRED_FIELDS = {"http_ok", "data_available", "data_fresh", "uptime_ms", "elapsed_s"}
-BOOLEAN_FIELDS = ("http_ok", "data_available", "data_fresh")
 NUMERIC_FIELDS = ("uptime_ms", "recovery_attempts", "elapsed_s")
 
 
@@ -42,9 +41,18 @@ def _max_consecutive_stale(rows):
     return longest
 
 
+def _write_report(path, metrics, failures):
+    report = dict(metrics)
+    report["passed"] = not failures
+    report["failures"] = failures
+    with open(path, "w", encoding="utf-8") as stream:
+        json.dump(report, stream, indent=2, sort_keys=True)
+        stream.write("\n")
+
+
 def analyze(path, min_http_success=95.0, min_fresh=90.0,
             max_recovery_attempts=None, min_recovery_attempts=None,
-            max_stale_samples=60):
+            max_stale_samples=60, json_output=None):
     with open(path, newline="", encoding="utf-8") as stream:
         reader = csv.DictReader(stream)
         fields = set(reader.fieldnames or [])
@@ -52,10 +60,15 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0,
 
     if not REQUIRED_FIELDS.issubset(fields):
         missing = ", ".join(sorted(REQUIRED_FIELDS - fields))
-        return [f"FAIL: capture is missing required columns: {missing}"]
-
+        failures = [f"FAIL: capture is missing required columns: {missing}"]
+        if json_output:
+            _write_report(json_output, {"samples": len(rows)}, failures)
+        return failures
     if not rows:
-        return ["FAIL: capture contains no samples"]
+        failures = ["FAIL: capture contains no samples"]
+        if json_output:
+            _write_report(json_output, {"samples": 0}, failures)
+        return failures
 
     failures = []
     for index, row in enumerate(rows, start=2):
@@ -63,16 +76,12 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0,
         if http_ok is None:
             failures.append(f"FAIL: invalid or missing http_ok value on CSV line {index}")
             continue
-
-        # A failed HTTP request intentionally has no payload fields. It still
-        # counts toward HTTP success, but must not be treated as malformed GNSS
-        # telemetry. Capture timing and uptime are validated independently.
+        # Failed HTTP requests intentionally have blank payload fields.
         for key in ("data_available", "data_fresh"):
             if http_ok and _bool(row, key) is None:
                 failures.append(f"FAIL: invalid or missing {key} value on CSV line {index}")
-
         for key in NUMERIC_FIELDS:
-            if key in fields and row.get(key, "") not in (None, ""):
+            if row.get(key, "") not in (None, ""):
                 try:
                     value = _float(row, key)
                 except ValueError:
@@ -80,14 +89,12 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0,
                     continue
                 if value is not None and not math.isfinite(value):
                     failures.append(f"FAIL: non-finite {key} value on CSV line {index}")
-
         try:
             uptime = _float(row, "uptime_ms")
         except ValueError:
             uptime = None
         if uptime is None or not math.isfinite(uptime):
             failures.append(f"FAIL: invalid or missing uptime_ms value on CSV line {index}")
-
         try:
             elapsed = _float(row, "elapsed_s")
         except ValueError:
@@ -101,7 +108,6 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0,
     if http_rate < min_http_success:
         failures.append(f"FAIL: HTTP success {http_rate:.1f}% < {min_http_success:.1f}%")
 
-    # Only successful HTTP responses can provide trustworthy freshness data.
     successful_rows = [r for r in rows if _bool(r, "http_ok") is True]
     fresh_known = [_bool(r, "data_fresh") for r in successful_rows]
     fresh = sum(value is True for value in fresh_known)
@@ -111,12 +117,9 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0,
 
     max_stale = _max_consecutive_stale(successful_rows)
     if max_stale > max_stale_samples:
-        failures.append(
-            f"FAIL: consecutive stale samples reached {max_stale} > {max_stale_samples}"
-        )
+        failures.append(f"FAIL: consecutive stale samples reached {max_stale} > {max_stale_samples}")
 
-    uptimes = []
-    elapsed_values = []
+    uptimes, elapsed_values = [], []
     for row in rows:
         try:
             uptime = _float(row, "uptime_ms")
@@ -130,7 +133,6 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0,
             elapsed = None
         if elapsed is not None and math.isfinite(elapsed):
             elapsed_values.append(elapsed)
-
     if len(uptimes) >= 2 and any(b < a for a, b in zip(uptimes, uptimes[1:])):
         failures.append("FAIL: uptime_ms moved backwards; possible reboot/reset")
     if len(elapsed_values) >= 2 and any(b < a for a, b in zip(elapsed_values, elapsed_values[1:])):
@@ -144,39 +146,41 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0,
             continue
         if value is not None and math.isfinite(value):
             recoveries.append(value)
-
-    # recovery_attempts is a cumulative device counter. Validate the change
-    # during this capture, not the lifetime counter value at the first sample.
     recovery_baseline = recoveries[0] if recoveries else 0
     recovery_end = max(recoveries) if recoveries else recovery_baseline
     recovery_delta = max(0, recovery_end - recovery_baseline)
     if max_recovery_attempts is not None and recovery_delta > max_recovery_attempts:
-        failures.append(
-            f"FAIL: recovery attempts during capture reached {int(recovery_delta)} > {max_recovery_attempts}"
-        )
+        failures.append(f"FAIL: recovery attempts during capture reached {int(recovery_delta)} > {max_recovery_attempts}")
     if min_recovery_attempts is not None and recovery_delta < min_recovery_attempts:
-        failures.append(
-            f"FAIL: recovery attempts during capture reached {int(recovery_delta)} < {min_recovery_attempts}"
-        )
+        failures.append(f"FAIL: recovery attempts during capture reached {int(recovery_delta)} < {min_recovery_attempts}")
 
     available = [_bool(r, "data_available") for r in successful_rows]
     available = [v for v in available if v is not None]
     available_count = sum(available)
-
+    metrics = {
+        "samples": len(rows),
+        "http_success_percent": round(http_rate, 3),
+        "fresh_data_percent": round(fresh_rate, 3),
+        "max_consecutive_stale_samples": max_stale,
+        "recovery_attempts_during_capture": int(recovery_delta),
+        "recovery_attempts_baseline": int(recovery_baseline),
+        "gnss_data_available_samples": available_count,
+        "successful_http_samples": len(successful_rows),
+    }
     print(f"Samples: {len(rows)}")
     print(f"HTTP success: {http_rate:.1f}%")
     print(f"Fresh-data ratio: {fresh_rate:.1f}%")
     print(f"Maximum consecutive stale samples: {max_stale}")
     print(f"Recovery attempts during capture: {int(recovery_delta)} (baseline {int(recovery_baseline)})")
     print(f"Samples with GNSS data available: {available_count}/{len(available)}")
-
     if failures:
         for failure in failures:
             print(failure)
-        return failures
-
-    print("PASS: capture satisfies the requested stability thresholds")
-    return []
+    else:
+        print("PASS: capture satisfies the requested stability thresholds")
+    if json_output:
+        _write_report(json_output, metrics, failures)
+    return failures
 
 
 def main(argv=None):
@@ -189,6 +193,7 @@ def main(argv=None):
                         help="Require at least this many recovery attempts during this capture")
     parser.add_argument("--max-stale-samples", type=int, default=60,
                         help="Maximum consecutive data_fresh=False samples (default: 60)")
+    parser.add_argument("--json-output", help="Optional machine-readable JSON verdict path")
     args = parser.parse_args(argv)
     if not 0 <= args.min_http_success <= 100 or not 0 <= args.min_fresh <= 100:
         parser.error("percentage thresholds must be between 0 and 100")
@@ -203,7 +208,7 @@ def main(argv=None):
         parser.error("max-stale-samples must be >= 0")
     return 1 if analyze(args.csv, args.min_http_success, args.min_fresh,
                         args.max_recovery_attempts, args.min_recovery_attempts,
-                        args.max_stale_samples) else 0
+                        args.max_stale_samples, args.json_output) else 0
 
 
 if __name__ == "__main__":
