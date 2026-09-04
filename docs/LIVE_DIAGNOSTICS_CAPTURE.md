@@ -24,12 +24,14 @@ After a normal-operation capture, run the dependency-free analyzer:
 python tools/analyze_live_capture.py field-test.csv
 ```
 
-The default acceptance gate is at least **95% HTTP success** and **90% fresh-data samples**, with a monotonically increasing device `uptime_ms`. A successful run prints `PASS`; a failed run exits non-zero and identifies the failed criterion.
+The default acceptance gate is at least **95% HTTP success**, **90% fresh-data samples**, no more than **60 consecutive stale samples**, and a monotonically increasing device `uptime_ms`. With the default one-second capture interval, the stale-data gate detects a continuous GNSS freshness loss of more than about one minute even if the overall 90% freshness ratio still looks healthy. A successful run prints `PASS`; a failed run exits non-zero and identifies the failed criterion.
+
+For faster or slower capture intervals, adjust the sample-based gate to match the intended wall-clock limit. For example, a 30-second maximum stale interval at a 2-second sampling interval is `--max-stale-samples 15`.
 
 Recovery testing can permit a bounded number of recovery attempts explicitly:
 
 ```bash
-python tools/analyze_live_capture.py recovery-test.csv --max-recovery-attempts 3
+python tools/analyze_live_capture.py recovery-test.csv --max-recovery-attempts 3 --max-stale-samples 180
 ```
 
 The analyzer is intentionally conservative: it does not declare a GNSS hardware recovery test successful merely because the API stayed reachable. The controlled outage, receiver reconnection, and geofence boundary procedures in `docs/HARDWARE_VALIDATION.md` remain required.
