@@ -55,8 +55,8 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0, max_recovery_attempts=N
     failures = []
     for index, row in enumerate(rows, start=2):
         for key in BOOLEAN_FIELDS:
-            if key in fields and row.get(key, "") not in (None, "") and _bool(row, key) is None:
-                failures.append(f"FAIL: invalid {key} value on CSV line {index}")
+            if key in fields and _bool(row, key) is None:
+                failures.append(f"FAIL: invalid or missing {key} value on CSV line {index}")
         for key in NUMERIC_FIELDS:
             if key in fields and row.get(key, "") not in (None, ""):
                 try:
@@ -67,14 +67,21 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0, max_recovery_attempts=N
                 if value is not None and not math.isfinite(value):
                     failures.append(f"FAIL: non-finite {key} value on CSV line {index}")
 
-    http_known = [r for r in rows if _bool(r, "http_ok") is not None]
-    http_ok = sum(_bool(r, "http_ok") is True for r in http_known)
+        try:
+            uptime = _float(row, "uptime_ms")
+        except ValueError:
+            uptime = None
+        if uptime is None or not math.isfinite(uptime):
+            failures.append(f"FAIL: invalid or missing uptime_ms value on CSV line {index}")
+
+    http_known = [_bool(r, "http_ok") for r in rows]
+    http_ok = sum(value is True for value in http_known)
     http_rate = 100.0 * http_ok / len(http_known) if http_known else 0.0
     if http_rate < min_http_success:
         failures.append(f"FAIL: HTTP success {http_rate:.1f}% < {min_http_success:.1f}%")
 
-    fresh_known = [r for r in rows if _bool(r, "data_fresh") is not None]
-    fresh = sum(_bool(r, "data_fresh") is True for r in fresh_known)
+    fresh_known = [_bool(r, "data_fresh") for r in rows] if "data_fresh" in fields else []
+    fresh = sum(value is True for value in fresh_known)
     fresh_rate = 100.0 * fresh / len(fresh_known) if fresh_known else 0.0
     if "data_fresh" in fields and not fresh_known:
         failures.append("FAIL: capture contains no valid data_fresh samples")
