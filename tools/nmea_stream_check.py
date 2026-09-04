@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import socket
 import time
 from collections import Counter
@@ -110,14 +111,15 @@ def main(argv: list[str] | None = None) -> int:
 
     if not 1 <= args.port <= 65535:
         parser.error("port must be between 1 and 65535")
-    if args.seconds <= 0:
-        parser.error("seconds must be > 0")
+    if not math.isfinite(args.seconds) or args.seconds <= 0:
+        parser.error("seconds must be a finite value > 0")
     if args.min_sentences < 0:
         parser.error("min-sentences must be >= 0")
-    if not 0.0 <= args.min_valid_percent <= 100.0:
-        parser.error("min-valid-percent must be between 0 and 100")
-    if args.min_duration_s is not None and args.min_duration_s < 0:
-        parser.error("min-duration-s must be >= 0")
+    if not math.isfinite(args.min_valid_percent) or not 0.0 <= args.min_valid_percent <= 100.0:
+        parser.error("min-valid-percent must be a finite value between 0 and 100")
+    if args.min_duration_s is not None and (
+            not math.isfinite(args.min_duration_s) or args.min_duration_s < 0):
+        parser.error("min-duration-s must be a finite value >= 0")
     required_types = [value.upper() for value in args.require_type]
     if any(len(value) != 5 or not value.isalnum() for value in required_types):
         parser.error("require-type values must be five-character alphanumeric NMEA formatters")
