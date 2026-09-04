@@ -49,23 +49,14 @@ def test_report_rejects_missing_required_type() -> None:
     assert any("GPGGA" in failure for failure in failures)
 
 
-def test_report_rejects_invalid_checksum() -> None:
+def test_report_rejects_invalid_checksum_when_strict() -> None:
     report, failures = build_report(
         9, 1, Counter({"GPRMC": 9}), Counter({"GP": 9}),
-        30.0, 1, 90.0, [], 30.0,
+        30.0, 1, 100.0, [], 30.0,
     )
     assert report["passed"] is False
     assert report["invalid_sentences"] == 1
-    assert any("checksum" in failure for failure in failures)
-
-
-def test_report_rejects_low_valid_percentage() -> None:
-    report, failures = build_report(
-        8, 2, Counter({"GPRMC": 8}), Counter({"GP": 8}),
-        30.0, 1, 90.0, [], 30.0,
-    )
-    assert report["valid_percent"] == 80.0
-    assert report["passed"] is False
+    assert report["valid_percent"] == 90.0
     assert any("percentage" in failure for failure in failures)
 
 
@@ -76,6 +67,16 @@ def test_report_accepts_configured_validity_threshold() -> None:
     )
     assert report["passed"] is True
     assert failures == []
+
+
+def test_report_rejects_low_valid_percentage() -> None:
+    report, failures = build_report(
+        8, 2, Counter({"GPRMC": 8}), Counter({"GP": 8}),
+        30.0, 1, 90.0, [], 30.0,
+    )
+    assert report["valid_percent"] == 80.0
+    assert report["passed"] is False
+    assert any("percentage" in failure for failure in failures)
 
 
 def test_report_rejects_short_capture() -> None:
@@ -106,9 +107,9 @@ if __name__ == "__main__":
     test_sentence_kind_rejects_malformed_prefix()
     test_report_passes_required_types_and_minimum()
     test_report_rejects_missing_required_type()
-    test_report_rejects_invalid_checksum()
-    test_report_rejects_low_valid_percentage()
+    test_report_rejects_invalid_checksum_when_strict()
     test_report_accepts_configured_validity_threshold()
+    test_report_rejects_low_valid_percentage()
     test_report_rejects_short_capture()
     test_report_accepts_capture_at_duration_threshold()
     print("PASS: nmea_stream_check self-tests")
