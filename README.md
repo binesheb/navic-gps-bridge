@@ -87,6 +87,10 @@ The bridge accepts up to four simultaneous TCP NMEA consumers. If all four outpu
 
 After flashing, follow the [hardware validation checklist](docs/HARDWARE_VALIDATION.md) to verify GNSS parsing, live diagnostics, GPS-compatible output, TCP streaming, recovery behaviour, and geofencing.
 
+For downstream TCP validation, use `tools/nmea_stream_check.py`. It can enforce minimum sentence counts, checksum-valid percentage, required formatter types, and actual capture duration, and can save a JSON verdict for field evidence. See [the live NMEA stream validation guide](docs/LIVE_STREAM_VALIDATION.md).
+
+For API stability validation, use `tools/live_acceptance.py` to capture `/api/live` telemetry and run the deterministic analyzer with HTTP success, freshness, recovery-attempt, stale-sample, and duration thresholds.
+
 For regression testing:
 
 ```bash
@@ -99,10 +103,10 @@ For a production firmware build:
 pio run -e esp32-s3-devkitc-1
 ```
 
-GitHub Actions runs both the ESP32-S3 regression suite and the production firmware build on pushes and pull requests targeting `main`.
+GitHub Actions runs the ESP32-S3 regression build and the production firmware build on pushes and pull requests targeting `main`. Hosted CI compiles embedded test environments without attempting to flash a physical board. Actual ESP32-S3 test execution remains part of hardware validation.
 
 ## Current status
 
-The GNSS recovery subsystem is implemented, integrated into the production firmware, and covered by the embedded regression configuration. The geofence subsystem is integrated into configuration, live diagnostics, dashboard status, transition timing, and regression coverage. The CI path compiles embedded tests without requiring physical hardware and publishes traceable firmware artifacts.
+The GNSS recovery subsystem is implemented, integrated into the production firmware, and covered by the embedded regression configuration. The geofence subsystem is integrated into configuration, live diagnostics, dashboard status, transition timing, and regression coverage. The CI path compiles embedded tests without requiring physical hardware and publishes traceable firmware artifacts with integrity metadata.
 
-The next milestone is physical receiver validation under startup failure, cable disconnect, prolonged silence, UART recovery, recovery cooldown, and controlled geofence boundary-crossing conditions.
+The next milestone is physical receiver validation under startup failure, cable disconnect, prolonged silence, UART recovery, recovery cooldown, and controlled geofence boundary-crossing conditions. Keep the NMEA JSON verdict, `/api/live` capture, serial log, and exact firmware commit/tag together as the evidence set for each hardware/receiver combination.
