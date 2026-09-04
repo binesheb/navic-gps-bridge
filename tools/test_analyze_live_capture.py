@@ -6,7 +6,7 @@ from pathlib import Path
 
 from analyze_live_capture import analyze
 
-FIELDS = ["http_ok", "data_fresh", "uptime_ms", "recovery_attempts", "data_available"]
+FIELDS = ["http_ok", "data_fresh", "uptime_ms", "recovery_attempts", "data_available", "elapsed_s"]
 
 
 class AnalyzeLiveCaptureTests(unittest.TestCase):
@@ -21,39 +21,46 @@ class AnalyzeLiveCaptureTests(unittest.TestCase):
 
     def test_stable_capture_passes(self):
         path = self._write([
-            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "1000", "recovery_attempts": "0", "data_available": "True"},
-            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "2000", "recovery_attempts": "0", "data_available": "True"},
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "1000", "recovery_attempts": "0", "data_available": "True", "elapsed_s": "0.0"},
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "2000", "recovery_attempts": "0", "data_available": "True", "elapsed_s": "1.0"},
         ])
         self.assertEqual(analyze(path), [])
 
     def test_uptime_regression_fails(self):
         path = self._write([
-            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "2000", "recovery_attempts": "0", "data_available": "True"},
-            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "1000", "recovery_attempts": "0", "data_available": "True"},
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "2000", "recovery_attempts": "0", "data_available": "True", "elapsed_s": "0.0"},
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "1000", "recovery_attempts": "0", "data_available": "True", "elapsed_s": "1.0"},
         ])
         self.assertTrue(any("uptime_ms" in failure for failure in analyze(path)))
 
+    def test_elapsed_regression_fails(self):
+        path = self._write([
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "1000", "recovery_attempts": "0", "data_available": "True", "elapsed_s": "2.0"},
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "2000", "recovery_attempts": "0", "data_available": "True", "elapsed_s": "1.0"},
+        ])
+        self.assertTrue(any("elapsed_s moved backwards" in failure for failure in analyze(path)))
+
     def test_recovery_limit_is_enforced(self):
         path = self._write([
-            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "1000", "recovery_attempts": "4", "data_available": "False"},
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "1000", "recovery_attempts": "4", "data_available": "False", "elapsed_s": "0.0"},
         ])
         self.assertTrue(any("recovery attempts" in failure for failure in analyze(path, max_recovery_attempts=3)))
 
     def test_prolonged_stale_period_is_enforced(self):
         path = self._write([
-            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "1000", "recovery_attempts": "0", "data_available": "True"},
-            {"http_ok": "True", "data_fresh": "False", "uptime_ms": "2000", "recovery_attempts": "1", "data_available": "False"},
-            {"http_ok": "True", "data_fresh": "False", "uptime_ms": "3000", "recovery_attempts": "1", "data_available": "False"},
-            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "4000", "recovery_attempts": "1", "data_available": "True"},
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "1000", "recovery_attempts": "0", "data_available": "True", "elapsed_s": "0.0"},
+            {"http_ok": "True", "data_fresh": "False", "uptime_ms": "2000", "recovery_attempts": "1", "data_available": "False", "elapsed_s": "1.0"},
+            {"http_ok": "True", "data_fresh": "False", "uptime_ms": "3000", "recovery_attempts": "1", "data_available": "False", "elapsed_s": "2.0"},
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "4000", "recovery_attempts": "1", "data_available": "True", "elapsed_s": "3.0"},
         ])
         failures = analyze(path, min_fresh=50.0, max_stale_samples=1)
         self.assertTrue(any("consecutive stale samples" in failure for failure in failures))
 
     def test_stale_period_resets_after_fresh_sample(self):
         path = self._write([
-            {"http_ok": "True", "data_fresh": "False", "uptime_ms": "1000", "recovery_attempts": "0", "data_available": "False"},
-            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "2000", "recovery_attempts": "0", "data_available": "True"},
-            {"http_ok": "True", "data_fresh": "False", "uptime_ms": "3000", "recovery_attempts": "0", "data_available": "False"},
+            {"http_ok": "True", "data_fresh": "False", "uptime_ms": "1000", "recovery_attempts": "0", "data_available": "False", "elapsed_s": "0.0"},
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "2000", "recovery_attempts": "0", "data_available": "True", "elapsed_s": "1.0"},
+            {"http_ok": "True", "data_fresh": "False", "uptime_ms": "3000", "recovery_attempts": "0", "data_available": "False", "elapsed_s": "2.0"},
         ])
         self.assertEqual(analyze(path, min_fresh=30.0, max_stale_samples=1), [])
 
@@ -67,27 +74,33 @@ class AnalyzeLiveCaptureTests(unittest.TestCase):
 
     def test_invalid_boolean_value_fails(self):
         path = self._write([
-            {"http_ok": "maybe", "data_fresh": "True", "uptime_ms": "1000", "recovery_attempts": "0", "data_available": "True"},
+            {"http_ok": "maybe", "data_fresh": "True", "uptime_ms": "1000", "recovery_attempts": "0", "data_available": "True", "elapsed_s": "0.0"},
         ])
         self.assertTrue(any("invalid http_ok" in failure for failure in analyze(path)))
 
     def test_missing_boolean_value_fails(self):
         path = self._write([
-            {"http_ok": "True", "data_fresh": "", "uptime_ms": "1000", "recovery_attempts": "0", "data_available": "True"},
+            {"http_ok": "True", "data_fresh": "", "uptime_ms": "1000", "recovery_attempts": "0", "data_available": "True", "elapsed_s": "0.0"},
         ])
         self.assertTrue(any("missing data_fresh" in failure for failure in analyze(path)))
 
     def test_invalid_numeric_value_fails_without_crashing(self):
         path = self._write([
-            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "not-a-number", "recovery_attempts": "0", "data_available": "True"},
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "not-a-number", "recovery_attempts": "0", "data_available": "True", "elapsed_s": "0.0"},
         ])
         self.assertTrue(any("invalid uptime_ms" in failure for failure in analyze(path)))
 
     def test_missing_uptime_value_fails(self):
         path = self._write([
-            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "", "recovery_attempts": "0", "data_available": "True"},
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "", "recovery_attempts": "0", "data_available": "True", "elapsed_s": "0.0"},
         ])
         self.assertTrue(any("missing uptime_ms" in failure for failure in analyze(path)))
+
+    def test_missing_elapsed_value_fails(self):
+        path = self._write([
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "1000", "recovery_attempts": "0", "data_available": "True", "elapsed_s": ""},
+        ])
+        self.assertTrue(any("missing elapsed_s" in failure for failure in analyze(path)))
 
 
 if __name__ == "__main__":
