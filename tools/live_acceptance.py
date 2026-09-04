@@ -7,6 +7,7 @@ whether the verdict passes or fails so the evidence can be inspected later.
 """
 
 import argparse
+import math
 import sys
 
 from analyze_live_capture import analyze
@@ -35,6 +36,14 @@ def main(argv=None):
                         help="Optional machine-readable JSON verdict path")
     args = parser.parse_args(argv)
 
+    for name, value in (("interval", args.interval),
+                        ("timeout", args.timeout),
+                        ("duration", args.duration),
+                        ("min-http-success", args.min_http_success),
+                        ("min-fresh", args.min_fresh),
+                        ("min-duration-s", args.min_duration_s)):
+        if value is not None and not math.isfinite(value):
+            parser.error(f"{name} must be finite")
     if args.interval <= 0 or args.timeout <= 0 or args.duration < 0:
         parser.error("interval and timeout must be > 0; duration must be >= 0")
     if not 0 <= args.min_http_success <= 100 or not 0 <= args.min_fresh <= 100:

@@ -45,6 +45,10 @@ jobs:
         working-directory: tools
         run: python -m unittest test_analyze_live_capture.py
 
+      - name: Run live acceptance argument-validation self-tests
+        working-directory: tools
+        run: python -m unittest test_live_acceptance.py
+
       - name: Run embedded regression tests
         run: pio test -e esp32-s3-tests --junit-output-path test-results.xml
 
