@@ -208,6 +208,11 @@ def main(argv=None):
                         help="Require capture elapsed time to reach at least this many seconds")
     parser.add_argument("--json-output", help="Optional machine-readable JSON verdict path")
     args = parser.parse_args(argv)
+    for name, value in (("min-http-success", args.min_http_success),
+                        ("min-fresh", args.min_fresh),
+                        ("min-duration-s", args.min_duration_s)):
+        if not math.isfinite(value):
+            parser.error(f"{name} must be finite")
     if not 0 <= args.min_http_success <= 100 or not 0 <= args.min_fresh <= 100:
         parser.error("percentage thresholds must be between 0 and 100")
     if args.max_recovery_attempts is not None and args.max_recovery_attempts < 0:
