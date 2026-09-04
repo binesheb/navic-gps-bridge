@@ -119,7 +119,7 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0,
     if max_stale > max_stale_samples:
         failures.append(f"FAIL: consecutive stale samples reached {max_stale} > {max_stale_samples}")
 
-    uptimes, elapsed_values = [], []
+    uptimes, elapsed_values, recovery_values = [], [], []
     for row in rows:
         try:
             uptime = _float(row, "uptime_ms")
@@ -133,21 +133,21 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0,
             elapsed = None
         if elapsed is not None and math.isfinite(elapsed):
             elapsed_values.append(elapsed)
+        try:
+            recovery = _float(row, "recovery_attempts")
+        except ValueError:
+            recovery = None
+        if recovery is not None and math.isfinite(recovery):
+            recovery_values.append(recovery)
     if len(uptimes) >= 2 and any(b < a for a, b in zip(uptimes, uptimes[1:])):
         failures.append("FAIL: uptime_ms moved backwards; possible reboot/reset")
     if len(elapsed_values) >= 2 and any(b < a for a, b in zip(elapsed_values, elapsed_values[1:])):
         failures.append("FAIL: elapsed_s moved backwards; capture timing is inconsistent")
+    if len(recovery_values) >= 2 and any(b < a for a, b in zip(recovery_values, recovery_values[1:])):
+        failures.append("FAIL: recovery_attempts moved backwards; recovery counter is inconsistent")
 
-    recoveries = []
-    for row in rows:
-        try:
-            value = _float(row, "recovery_attempts")
-        except ValueError:
-            continue
-        if value is not None and math.isfinite(value):
-            recoveries.append(value)
-    recovery_baseline = recoveries[0] if recoveries else 0
-    recovery_end = max(recoveries) if recoveries else recovery_baseline
+    recovery_baseline = recovery_values[0] if recovery_values else 0
+    recovery_end = max(recovery_values) if recovery_values else recovery_baseline
     recovery_delta = max(0, recovery_end - recovery_baseline)
     if max_recovery_attempts is not None and recovery_delta > max_recovery_attempts:
         failures.append(f"FAIL: recovery attempts during capture reached {int(recovery_delta)} > {max_recovery_attempts}")
