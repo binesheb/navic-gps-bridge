@@ -28,11 +28,16 @@ The default acceptance gate is at least **95% HTTP success**, **90% fresh-data s
 
 For faster or slower capture intervals, adjust the sample-based gate to match the intended wall-clock limit. For example, a 30-second maximum stale interval at a 2-second sampling interval is `--max-stale-samples 15`.
 
-Recovery testing can permit a bounded number of recovery attempts explicitly:
+Recovery testing can enforce both a bounded recovery count and evidence that recovery actually occurred:
 
 ```bash
-python tools/analyze_live_capture.py recovery-test.csv --max-recovery-attempts 3 --max-stale-samples 180
+python tools/analyze_live_capture.py recovery-test.csv \
+  --min-recovery-attempts 1 \
+  --max-recovery-attempts 3 \
+  --max-stale-samples 180
 ```
+
+Use `--min-recovery-attempts` only for a **controlled receiver-silence/disconnect test**. It is intentionally not part of the normal 30-minute stability gate. The check uses the bridge's cumulative `recovery_attempts` telemetry, so a controlled outage must produce at least the requested number of observed recovery attempts before the analyzer can report `PASS`.
 
 The analyzer is intentionally conservative: it does not declare a GNSS hardware recovery test successful merely because the API stayed reachable. The controlled outage, receiver reconnection, and geofence boundary procedures in `docs/HARDWARE_VALIDATION.md` remain required.
 
