@@ -27,7 +27,19 @@ def _bool(row, key):
     return None
 
 
-def analyze(path, min_http_success=95.0, min_fresh=90.0, max_recovery_attempts=None):
+def _max_consecutive_stale(rows):
+    longest = current = 0
+    for row in rows:
+        fresh = _bool(row, "data_fresh")
+        if fresh is False:
+            current += 1
+            longest = max(longest, current)
+        elif fresh is True:
+            current = 0
+    return longest
+
+
+def analyze(path, min_http_success=95.0, min_fresh=90.0, max_recovery_attempts=None, max_stale_samples=60):
     with open(path, newline="", encoding="utf-8") as stream:
         reader = csv.DictReader(stream)
         fields = set(reader.fieldnames or [])
@@ -69,6 +81,12 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0, max_recovery_attempts=N
     elif fresh_known and fresh_rate < min_fresh:
         failures.append(f"FAIL: fresh-data ratio {fresh_rate:.1f}% < {min_fresh:.1f}%")
 
+    max_stale = _max_consecutive_stale(rows) if "data_fresh" in fields else 0
+    if "data_fresh" in fields and max_stale > max_stale_samples:
+        failures.append(
+            f"FAIL: consecutive stale samples reached {max_stale} > {max_stale_samples}"
+        )
+
     uptimes = []
     for row in rows:
         try:
@@ -102,6 +120,7 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0, max_recovery_attempts=N
     print(f"HTTP success: {http_rate:.1f}%")
     if fresh_known:
         print(f"Fresh-data ratio: {fresh_rate:.1f}%")
+        print(f"Maximum consecutive stale samples: {max_stale}")
     print(f"Maximum recovery attempts observed: {int(max_recovery)}")
     print(f"Samples with GNSS data available: {available_count}/{len(available)}")
 
@@ -120,12 +139,16 @@ def main(argv=None):
     parser.add_argument("--min-http-success", type=float, default=95.0)
     parser.add_argument("--min-fresh", type=float, default=90.0)
     parser.add_argument("--max-recovery-attempts", type=int)
+    parser.add_argument("--max-stale-samples", type=int, default=60,
+                        help="Maximum consecutive data_fresh=False samples (default: 60)")
     args = parser.parse_args(argv)
     if not 0 <= args.min_http_success <= 100 or not 0 <= args.min_fresh <= 100:
         parser.error("percentage thresholds must be between 0 and 100")
     if args.max_recovery_attempts is not None and args.max_recovery_attempts < 0:
         parser.error("max-recovery-attempts must be >= 0")
-    return 1 if analyze(args.csv, args.min_http_success, args.min_fresh, args.max_recovery_attempts) else 0
+    if args.max_stale_samples < 0:
+        parser.error("max-stale-samples must be >= 0")
+    return 1 if analyze(args.csv, args.min_http_success, args.min_fresh, args.max_recovery_attempts, args.max_stale_samples) else 0
 
 
 if __name__ == "__main__":
