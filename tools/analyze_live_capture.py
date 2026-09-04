@@ -52,7 +52,7 @@ def _write_report(path, metrics, failures):
 
 def analyze(path, min_http_success=95.0, min_fresh=90.0,
             max_recovery_attempts=None, min_recovery_attempts=None,
-            max_stale_samples=60, json_output=None):
+            max_stale_samples=60, json_output=None, min_duration_s=0.0):
     with open(path, newline="", encoding="utf-8") as stream:
         reader = csv.DictReader(stream)
         fields = set(reader.fieldnames or [])
@@ -143,6 +143,8 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0,
         failures.append("FAIL: uptime_ms moved backwards; possible reboot/reset")
     if len(elapsed_values) >= 2 and any(b < a for a, b in zip(elapsed_values, elapsed_values[1:])):
         failures.append("FAIL: elapsed_s moved backwards; capture timing is inconsistent")
+    if elapsed_values and elapsed_values[-1] < min_duration_s:
+        failures.append(f"FAIL: capture duration {elapsed_values[-1]:.1f}s < {min_duration_s:.1f}s")
     if len(recovery_values) >= 2 and any(b < a for a, b in zip(recovery_values, recovery_values[1:])):
         failures.append("FAIL: recovery_attempts moved backwards; recovery counter is inconsistent")
 
@@ -162,6 +164,7 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0,
         "http_success_percent": round(http_rate, 3),
         "fresh_data_percent": round(fresh_rate, 3),
         "max_consecutive_stale_samples": max_stale,
+        "capture_duration_s": round(elapsed_values[-1], 3) if elapsed_values else 0.0,
         "recovery_attempts_during_capture": int(recovery_delta),
         "recovery_attempts_baseline": int(recovery_baseline),
         "gnss_data_available_samples": available_count,
@@ -171,6 +174,7 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0,
     print(f"HTTP success: {http_rate:.1f}%")
     print(f"Fresh-data ratio: {fresh_rate:.1f}%")
     print(f"Maximum consecutive stale samples: {max_stale}")
+    print(f"Capture duration: {metrics['capture_duration_s']:.1f}s")
     print(f"Recovery attempts during capture: {int(recovery_delta)} (baseline {int(recovery_baseline)})")
     print(f"Samples with GNSS data available: {available_count}/{len(available)}")
     if failures:
@@ -193,6 +197,8 @@ def main(argv=None):
                         help="Require at least this many recovery attempts during this capture")
     parser.add_argument("--max-stale-samples", type=int, default=60,
                         help="Maximum consecutive data_fresh=False samples (default: 60)")
+    parser.add_argument("--min-duration-s", type=float, default=0.0,
+                        help="Require capture elapsed time to reach at least this many seconds")
     parser.add_argument("--json-output", help="Optional machine-readable JSON verdict path")
     args = parser.parse_args(argv)
     if not 0 <= args.min_http_success <= 100 or not 0 <= args.min_fresh <= 100:
@@ -206,9 +212,11 @@ def main(argv=None):
         parser.error("min-recovery-attempts cannot exceed max-recovery-attempts")
     if args.max_stale_samples < 0:
         parser.error("max-stale-samples must be >= 0")
+    if args.min_duration_s < 0:
+        parser.error("min-duration-s must be >= 0")
     return 1 if analyze(args.csv, args.min_http_success, args.min_fresh,
                         args.max_recovery_attempts, args.min_recovery_attempts,
-                        args.max_stale_samples, args.json_output) else 0
+                        args.max_stale_samples, args.json_output, args.min_duration_s) else 0
 
 
 if __name__ == "__main__":
