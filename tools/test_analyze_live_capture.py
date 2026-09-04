@@ -29,6 +29,13 @@ class AnalyzeLiveCaptureTests(unittest.TestCase):
     def test_stable_capture_passes(self):
         self.assertEqual(analyze(self._write(self._stable_rows())), [])
 
+    def test_minimum_duration_is_enforced(self):
+        failures = analyze(self._write(self._stable_rows()), min_duration_s=2.0)
+        self.assertTrue(any("capture duration" in failure for failure in failures))
+
+    def test_minimum_duration_accepts_long_enough_capture(self):
+        self.assertEqual(analyze(self._write(self._stable_rows()), min_duration_s=1.0), [])
+
     def test_json_report_contains_verdict_and_metrics(self):
         csv_path = self._write(self._stable_rows())
         report = Path(tempfile.mktemp(suffix=".json"))
@@ -38,6 +45,7 @@ class AnalyzeLiveCaptureTests(unittest.TestCase):
         self.assertTrue(payload["passed"])
         self.assertEqual(payload["samples"], 2)
         self.assertEqual(payload["successful_http_samples"], 2)
+        self.assertEqual(payload["capture_duration_s"], 1.0)
         self.assertEqual(payload["failures"], [])
 
     def test_json_report_contains_failures(self):
