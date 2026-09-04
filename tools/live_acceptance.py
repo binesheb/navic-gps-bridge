@@ -29,6 +29,8 @@ def main(argv=None):
     parser.add_argument("--min-recovery-attempts", type=int,
                         help="Require at least this many observed recovery attempts")
     parser.add_argument("--max-stale-samples", type=int, default=60)
+    parser.add_argument("--json-output",
+                        help="Optional machine-readable JSON verdict path")
     args = parser.parse_args(argv)
 
     if args.interval <= 0 or args.timeout <= 0 or args.duration < 0:
@@ -66,6 +68,7 @@ def main(argv=None):
         args.max_recovery_attempts,
         args.min_recovery_attempts,
         args.max_stale_samples,
+        args.json_output,
     )
     return 1 if verdict else 0
 
