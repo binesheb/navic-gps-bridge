@@ -9,9 +9,9 @@ import math
 # These fields are required for a trustworthy stability verdict. In particular,
 # data_fresh is mandatory because the freshness ratio and stale-period gate rely
 # on it; a capture without it must never be treated as a passing stability test.
-REQUIRED_FIELDS = {"http_ok", "data_available", "data_fresh", "uptime_ms"}
+REQUIRED_FIELDS = {"http_ok", "data_available", "data_fresh", "uptime_ms", "elapsed_s"}
 BOOLEAN_FIELDS = ("http_ok", "data_available", "data_fresh")
-NUMERIC_FIELDS = ("uptime_ms", "recovery_attempts")
+NUMERIC_FIELDS = ("uptime_ms", "recovery_attempts", "elapsed_s")
 
 
 def _float(row, key):
@@ -80,6 +80,13 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0, max_recovery_attempts=N
         if uptime is None or not math.isfinite(uptime):
             failures.append(f"FAIL: invalid or missing uptime_ms value on CSV line {index}")
 
+        try:
+            elapsed = _float(row, "elapsed_s")
+        except ValueError:
+            elapsed = None
+        if elapsed is None or not math.isfinite(elapsed):
+            failures.append(f"FAIL: invalid or missing elapsed_s value on CSV line {index}")
+
     http_known = [_bool(r, "http_ok") for r in rows]
     http_ok = sum(value is True for value in http_known)
     http_rate = 100.0 * http_ok / len(http_known) if http_known else 0.0
@@ -99,15 +106,25 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0, max_recovery_attempts=N
         )
 
     uptimes = []
+    elapsed_values = []
     for row in rows:
         try:
-            value = _float(row, "uptime_ms")
+            uptime = _float(row, "uptime_ms")
         except ValueError:
-            continue
-        if value is not None and math.isfinite(value):
-            uptimes.append(value)
+            uptime = None
+        if uptime is not None and math.isfinite(uptime):
+            uptimes.append(uptime)
+        try:
+            elapsed = _float(row, "elapsed_s")
+        except ValueError:
+            elapsed = None
+        if elapsed is not None and math.isfinite(elapsed):
+            elapsed_values.append(elapsed)
+
     if len(uptimes) >= 2 and any(b < a for a, b in zip(uptimes, uptimes[1:])):
         failures.append("FAIL: uptime_ms moved backwards; possible reboot/reset")
+    if len(elapsed_values) >= 2 and any(b < a for a, b in zip(elapsed_values, elapsed_values[1:])):
+        failures.append("FAIL: elapsed_s moved backwards; capture timing is inconsistent")
 
     recoveries = []
     for row in rows:
