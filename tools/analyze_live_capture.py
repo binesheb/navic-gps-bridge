@@ -6,7 +6,10 @@ import csv
 import math
 
 
-REQUIRED_FIELDS = {"http_ok", "data_available", "uptime_ms"}
+# These fields are required for a trustworthy stability verdict. In particular,
+# data_fresh is mandatory because the freshness ratio and stale-period gate rely
+# on it; a capture without it must never be treated as a passing stability test.
+REQUIRED_FIELDS = {"http_ok", "data_available", "data_fresh", "uptime_ms"}
 BOOLEAN_FIELDS = ("http_ok", "data_available", "data_fresh")
 NUMERIC_FIELDS = ("uptime_ms", "recovery_attempts")
 
@@ -19,7 +22,10 @@ def _float(row, key):
 
 
 def _bool(row, key):
-    value = row.get(key, "").strip().lower()
+    value = row.get(key, "")
+    if value is None:
+        return None
+    value = value.strip().lower()
     if value in ("true", "1", "yes"):
         return True
     if value in ("false", "0", "no"):
@@ -55,7 +61,7 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0, max_recovery_attempts=N
     failures = []
     for index, row in enumerate(rows, start=2):
         for key in BOOLEAN_FIELDS:
-            if key in fields and _bool(row, key) is None:
+            if _bool(row, key) is None:
                 failures.append(f"FAIL: invalid or missing {key} value on CSV line {index}")
         for key in NUMERIC_FIELDS:
             if key in fields and row.get(key, "") not in (None, ""):
@@ -80,16 +86,14 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0, max_recovery_attempts=N
     if http_rate < min_http_success:
         failures.append(f"FAIL: HTTP success {http_rate:.1f}% < {min_http_success:.1f}%")
 
-    fresh_known = [_bool(r, "data_fresh") for r in rows] if "data_fresh" in fields else []
+    fresh_known = [_bool(r, "data_fresh") for r in rows]
     fresh = sum(value is True for value in fresh_known)
     fresh_rate = 100.0 * fresh / len(fresh_known) if fresh_known else 0.0
-    if "data_fresh" in fields and not fresh_known:
-        failures.append("FAIL: capture contains no valid data_fresh samples")
-    elif fresh_known and fresh_rate < min_fresh:
+    if fresh_rate < min_fresh:
         failures.append(f"FAIL: fresh-data ratio {fresh_rate:.1f}% < {min_fresh:.1f}%")
 
-    max_stale = _max_consecutive_stale(rows) if "data_fresh" in fields else 0
-    if "data_fresh" in fields and max_stale > max_stale_samples:
+    max_stale = _max_consecutive_stale(rows)
+    if max_stale > max_stale_samples:
         failures.append(
             f"FAIL: consecutive stale samples reached {max_stale} > {max_stale_samples}"
         )
@@ -125,9 +129,8 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0, max_recovery_attempts=N
 
     print(f"Samples: {len(rows)}")
     print(f"HTTP success: {http_rate:.1f}%")
-    if fresh_known:
-        print(f"Fresh-data ratio: {fresh_rate:.1f}%")
-        print(f"Maximum consecutive stale samples: {max_stale}")
+    print(f"Fresh-data ratio: {fresh_rate:.1f}%")
+    print(f"Maximum consecutive stale samples: {max_stale}")
     print(f"Maximum recovery attempts observed: {int(max_recovery)}")
     print(f"Samples with GNSS data available: {available_count}/{len(available)}")
 
