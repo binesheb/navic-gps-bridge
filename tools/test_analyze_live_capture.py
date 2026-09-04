@@ -56,11 +56,28 @@ class AnalyzeLiveCaptureTests(unittest.TestCase):
         ])
         self.assertTrue(any("elapsed_s moved backwards" in failure for failure in analyze(path)))
 
-    def test_recovery_limit_is_enforced(self):
+    def test_recovery_limit_uses_attempts_during_capture(self):
         path = self._write([
             {"http_ok": "True", "data_fresh": "True", "uptime_ms": "1000", "recovery_attempts": "4", "data_available": "False", "elapsed_s": "0.0"},
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "2000", "recovery_attempts": "5", "data_available": "True", "elapsed_s": "1.0"},
         ])
-        self.assertTrue(any("recovery attempts" in failure for failure in analyze(path, max_recovery_attempts=3)))
+        failures = analyze(path, max_recovery_attempts=0)
+        self.assertTrue(any("during capture" in failure for failure in failures))
+
+    def test_preexisting_recovery_counter_does_not_satisfy_minimum(self):
+        path = self._write([
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "1000", "recovery_attempts": "7", "data_available": "True", "elapsed_s": "0.0"},
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "2000", "recovery_attempts": "7", "data_available": "True", "elapsed_s": "1.0"},
+        ])
+        failures = analyze(path, min_recovery_attempts=1)
+        self.assertTrue(any("during capture" in failure for failure in failures))
+
+    def test_recovery_counter_delta_satisfies_minimum(self):
+        path = self._write([
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "1000", "recovery_attempts": "7", "data_available": "False", "elapsed_s": "0.0"},
+            {"http_ok": "True", "data_fresh": "True", "uptime_ms": "2000", "recovery_attempts": "8", "data_available": "True", "elapsed_s": "1.0"},
+        ])
+        self.assertEqual(analyze(path, min_recovery_attempts=1), [])
 
     def test_prolonged_stale_period_is_enforced(self):
         path = self._write([
