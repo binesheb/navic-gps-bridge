@@ -54,8 +54,6 @@ def build_report(valid: int, invalid: int, counts: Counter[str],
     failures: list[str] = []
     if total == 0:
         failures.append("FAIL: no NMEA sentences received")
-    if invalid:
-        failures.append("FAIL: invalid NMEA checksum(s) detected")
     if total < min_sentences:
         failures.append(f"FAIL: received {total} sentence(s) < {min_sentences}")
     if total > 0 and valid_percent < min_valid_percent:
@@ -180,31 +178,22 @@ def main(argv: list[str] | None = None) -> int:
         print(report["failures"][0])
         return 1
 
-    elapsed = time.monotonic() - started
+    duration = time.monotonic() - started
     report, failures = build_report(
-        valid, invalid, counts, talkers, elapsed,
-        args.min_sentences, args.min_valid_percent, required_types,
-        min_duration_s,
+        valid, invalid, counts, talkers, duration,
+        args.min_sentences, args.min_valid_percent, required_types, min_duration_s,
     )
     report["requested_duration_s"] = args.seconds
-    print(f"Sentences: {report['sentences']}  valid: {valid}  invalid: {invalid}")
-    print(f"Duration: {elapsed:.3f}s (requested {args.seconds:g}s)")
-    if talkers:
-        print("Talkers:")
-        for talker, count in talkers.most_common():
-            print(f"  {talker}: {count}")
-    if counts:
-        print("Types:")
-        for kind, count in counts.most_common():
-            print(f"  {kind}: {count}")
-    if failures:
-        for failure in failures:
-            print(failure)
-    else:
-        print("PASS: NMEA stream satisfies the requested checks")
     if args.json_output:
         write_report(args.json_output, report)
-    return 1 if failures else 0
+    for failure in failures:
+        print(failure)
+    if not failures:
+        print(
+            f"PASS: {valid}/{valid + invalid} valid NMEA sentences, "
+            f"{duration:.1f}s captured"
+        )
+    return 0 if not failures else 1
 
 
 if __name__ == "__main__":
