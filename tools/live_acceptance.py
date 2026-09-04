@@ -29,6 +29,8 @@ def main(argv=None):
     parser.add_argument("--min-recovery-attempts", type=int,
                         help="Require at least this many observed recovery attempts")
     parser.add_argument("--max-stale-samples", type=int, default=60)
+    parser.add_argument("--min-duration-s", type=float,
+                        help="Require capture elapsed time to reach at least this many seconds")
     parser.add_argument("--json-output",
                         help="Optional machine-readable JSON verdict path")
     args = parser.parse_args(argv)
@@ -46,6 +48,8 @@ def main(argv=None):
         parser.error("min-recovery-attempts cannot exceed max-recovery-attempts")
     if args.max_stale_samples < 0:
         parser.error("max-stale-samples must be >= 0")
+    if args.min_duration_s is not None and args.min_duration_s < 0:
+        parser.error("min-duration-s must be >= 0")
 
     try:
         samples, failures = capture(
@@ -61,6 +65,7 @@ def main(argv=None):
         print("FAIL: no successful samples were captured")
         return 1
 
+    min_duration = args.duration if args.min_duration_s is None else args.min_duration_s
     verdict = analyze(
         args.output,
         args.min_http_success,
@@ -69,6 +74,7 @@ def main(argv=None):
         args.min_recovery_attempts,
         args.max_stale_samples,
         args.json_output,
+        min_duration,
     )
     return 1 if verdict else 0
 
