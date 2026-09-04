@@ -144,14 +144,19 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0,
             continue
         if value is not None and math.isfinite(value):
             recoveries.append(value)
-    max_recovery = max(recoveries) if recoveries else 0
-    if max_recovery_attempts is not None and max_recovery > max_recovery_attempts:
+
+    # recovery_attempts is a cumulative device counter. Validate the change
+    # during this capture, not the lifetime counter value at the first sample.
+    recovery_baseline = recoveries[0] if recoveries else 0
+    recovery_end = max(recoveries) if recoveries else recovery_baseline
+    recovery_delta = max(0, recovery_end - recovery_baseline)
+    if max_recovery_attempts is not None and recovery_delta > max_recovery_attempts:
         failures.append(
-            f"FAIL: recovery attempts reached {int(max_recovery)} > {max_recovery_attempts}"
+            f"FAIL: recovery attempts during capture reached {int(recovery_delta)} > {max_recovery_attempts}"
         )
-    if min_recovery_attempts is not None and max_recovery < min_recovery_attempts:
+    if min_recovery_attempts is not None and recovery_delta < min_recovery_attempts:
         failures.append(
-            f"FAIL: recovery attempts reached {int(max_recovery)} < {min_recovery_attempts}"
+            f"FAIL: recovery attempts during capture reached {int(recovery_delta)} < {min_recovery_attempts}"
         )
 
     available = [_bool(r, "data_available") for r in successful_rows]
@@ -162,7 +167,7 @@ def analyze(path, min_http_success=95.0, min_fresh=90.0,
     print(f"HTTP success: {http_rate:.1f}%")
     print(f"Fresh-data ratio: {fresh_rate:.1f}%")
     print(f"Maximum consecutive stale samples: {max_stale}")
-    print(f"Maximum recovery attempts observed: {int(max_recovery)}")
+    print(f"Recovery attempts during capture: {int(recovery_delta)} (baseline {int(recovery_baseline)})")
     print(f"Samples with GNSS data available: {available_count}/{len(available)}")
 
     if failures:
@@ -181,7 +186,7 @@ def main(argv=None):
     parser.add_argument("--min-fresh", type=float, default=90.0)
     parser.add_argument("--max-recovery-attempts", type=int)
     parser.add_argument("--min-recovery-attempts", type=int,
-                        help="Require at least this many observed recovery attempts")
+                        help="Require at least this many recovery attempts during this capture")
     parser.add_argument("--max-stale-samples", type=int, default=60,
                         help="Maximum consecutive data_fresh=False samples (default: 60)")
     args = parser.parse_args(argv)
