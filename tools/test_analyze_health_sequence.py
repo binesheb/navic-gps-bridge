@@ -57,6 +57,14 @@ class HealthSequenceTests(unittest.TestCase):
                 (0, "HEALTHY"), (2, "STALE"), (1, "RECOVERING")
             ]))
 
+    def test_non_finite_elapsed_time_is_rejected(self):
+        for value in ("nan", "inf", "-inf"):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, "elapsed_s must be finite"):
+                    analyze(self.write_csv([
+                        (0, "HEALTHY"), (value, "STALE"), (2, "RECOVERING")
+                    ]))
+
 
 if __name__ == "__main__":
     unittest.main()
