@@ -8,6 +8,8 @@ import json
 import pathlib
 import sys
 
+from verify_field_evidence import verify_bundle
+
 MANIFEST_NAME = "EVIDENCE_MANIFEST.json"
 
 
@@ -25,17 +27,24 @@ def load_json(path: pathlib.Path) -> dict:
 def qualify(bundle: str, expected_commit: str | None = None,
             nmea_name: str = "nmea-verdict.json",
             live_name: str = "live-verdict.json") -> tuple[dict, list[str]]:
-    root = pathlib.Path(bundle)
+    root = pathlib.Path(bundle).resolve()
     failures: list[str] = []
     manifest_path = root / MANIFEST_NAME
     if not manifest_path.is_file():
-        return {"passed": False, "bundle": str(root), "failures": [f"FAIL: missing {MANIFEST_NAME}"]}, [f"FAIL: missing {MANIFEST_NAME}"]
+        failures.append(f"FAIL: missing {MANIFEST_NAME}")
+        return {"schema_version": 1, "passed": False, "bundle": str(root), "failures": failures}, failures
 
     try:
         manifest = load_json(manifest_path)
     except ValueError as exc:
         failures.append(f"FAIL: {exc}")
-        return {"passed": False, "bundle": str(root), "failures": failures}, failures
+        return {"schema_version": 1, "passed": False, "bundle": str(root), "failures": failures}, failures
+
+    if manifest.get("schema") != 1:
+        failures.append("FAIL: unsupported manifest schema")
+
+    # Qualification must include integrity verification, not merely trust the manifest.
+    failures.extend(f"FAIL: {failure}" for failure in verify_bundle(root))
 
     firmware_commit = manifest.get("firmware_commit")
     if not isinstance(firmware_commit, str) or not firmware_commit.strip():
@@ -47,10 +56,10 @@ def qualify(bundle: str, expected_commit: str | None = None,
     if not isinstance(entries, list):
         failures.append("FAIL: manifest files must be a list")
         entries = []
-    filenames = set()
-    for entry in entries:
-        if isinstance(entry, dict) and isinstance(entry.get("name"), str):
-            filenames.add(entry["name"])
+    filenames = {
+        entry["name"] for entry in entries
+        if isinstance(entry, dict) and isinstance(entry.get("name"), str)
+    }
     for required in (nmea_name, live_name):
         if required not in filenames:
             failures.append(f"FAIL: manifest does not include required verdict {required}")
@@ -75,6 +84,7 @@ def qualify(bundle: str, expected_commit: str | None = None,
         "bundle": str(root),
         "firmware_commit": firmware_commit,
         "required_verdicts": [nmea_name, live_name],
+        "integrity_verified": not any("integrity" in failure.lower() for failure in failures),
         "nmea_passed": verdicts.get(nmea_name, {}).get("passed") is True,
         "live_passed": verdicts.get(live_name, {}).get("passed") is True,
         "passed": not failures,
