@@ -63,7 +63,8 @@ class QualificationTests(unittest.TestCase):
     def test_rejects_tampered_verdict(self):
         temp, root = self.make_bundle()
         self.addCleanup(temp.cleanup)
-        (root / "nmea-verdict.json").write_text(json.dumps({"passed": False}) + "\n", encoding="utf-8")
+        # Keep the byte count unchanged so the test specifically exercises the digest check.
+        (root / "nmea-verdict.json").write_text(json.dumps({"passed": None}) + "\n", encoding="utf-8")
         report, failures = qualify(str(root), expected_commit="abc123")
         self.assertFalse(report["passed"])
         self.assertFalse(report["integrity_verified"])
