@@ -10,6 +10,7 @@ The analyzer is intentionally dependency-free and treats the CSV as field
 import argparse
 import csv
 import json
+import math
 import sys
 
 EXPECTED = ("HEALTHY", "STALE", "RECOVERING", "HEALTHY")
@@ -32,6 +33,8 @@ def read_rows(path):
                 elapsed = float(raw_elapsed)
             except ValueError as exc:
                 raise ValueError(f"line {line_number}: invalid elapsed_s") from exc
+            if not math.isfinite(elapsed):
+                raise ValueError(f"line {line_number}: elapsed_s must be finite")
             if previous is not None and elapsed < previous:
                 raise ValueError(f"line {line_number}: elapsed_s moved backwards")
             previous = elapsed
