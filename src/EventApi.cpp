@@ -1,13 +1,22 @@
 #include "EventApi.h"
 
 void buildEventSummaryJson(const EventEngine &engine, JsonDocument &doc) {
-  doc["count"] = engine.count();
+  const unsigned long count = engine.count();
+  doc["count"] = count;
   doc["history_size"] = engine.history().size();
   doc["capacity"] = EventLog::MAX_EVENTS;
+  doc["has_latest"] = count > 0;
+
+  JsonObject latest = doc["latest"].to<JsonObject>();
+  if (count == 0) {
+    latest.clear();
+    return;
+  }
+
   const AlertEvent &last = engine.last();
-  doc["latest"]["type"] = alertTypeName(last.type);
-  doc["latest"]["timestamp"] = last.timestamp;
-  doc["latest"]["message"] = last.message;
+  latest["type"] = alertTypeName(last.type);
+  latest["timestamp"] = last.timestamp;
+  latest["message"] = last.message;
 }
 
 void buildEventsJson(const EventEngine &engine, JsonDocument &doc) {
