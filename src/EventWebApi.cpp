@@ -23,8 +23,9 @@ void registerEventRoutes(WebServer &server, EventEngine &engine,
     engine.clearHistory();
     JsonDocument document;
     document["ok"] = true;
-    document["history_size"] = 0;
-    document["count"] = engine.count();
+    document["history_size"] = engine.history().size();
+    document["count"] = engine.history().size();
+    document["has_latest"] = false;
     sendDocument(server, document);
   });
 }
