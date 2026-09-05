@@ -1,9 +1,32 @@
 #include "LiveDiagnostics.h"
 
+namespace {
+const char *overallStatus(const LiveDiagnosticsCounters &counters,
+                          bool hasData, bool dataFresh, bool fix) {
+  if (counters.gnssRecovery && counters.gnssRecovery->recovering) {
+    return "RECOVERING";
+  }
+  if (!hasData) {
+    return "NO_DATA";
+  }
+  if (counters.gnssHealth && counters.gnssHealth->stale) {
+    return "STALE";
+  }
+  if (!dataFresh) {
+    return "STALE";
+  }
+  if (!fix) {
+    return "NO_FIX";
+  }
+  return "HEALTHY";
+}
+}
+
 void buildLiveDiagnostics(const GnssData &data, const EventEngine &events,
                           const LiveDiagnosticsCounters &counters,
                           unsigned long nowMs, JsonDocument &document) {
   const bool hasData = counters.lastDataMs != 0;
+  const bool dataFresh = hasData && nowMs - counters.lastDataMs < 3000;
 
   document["fix"] = data.fix;
   document["latitude"] = data.latitude;
@@ -16,8 +39,9 @@ void buildLiveDiagnostics(const GnssData &data, const EventEngine &events,
   document["packets"] = counters.packets;
   document["invalid_packets"] = counters.invalidPackets;
   document["data_available"] = hasData;
-  document["data_fresh"] = hasData && nowMs - counters.lastDataMs < 3000;
+  document["data_fresh"] = dataFresh;
   document["data_age_ms"] = hasData ? nowMs - counters.lastDataMs : 0;
+  document["status"] = overallStatus(counters, hasData, dataFresh, data.fix);
   document["wifi_mode"] = counters.wifiMode;
   document["uptime_ms"] = nowMs;
   document["geofence_inside"] = counters.geofenceInside;
