@@ -91,6 +91,22 @@ For downstream TCP validation, use `tools/nmea_stream_check.py`. It can enforce 
 
 For API stability validation, use `tools/live_acceptance.py` to capture `/api/live` telemetry and run the deterministic analyzer with HTTP success, freshness, recovery-attempt, stale-sample, and duration thresholds.
 
+For a single operator command that validates both surfaces, use `tools/field_acceptance.py`. It runs the HTTP `/api/live` acceptance and TCP NMEA stream checks, preserves both raw verdicts, and writes `FIELD_ACCEPTANCE.json` with a combined pass/fail result. The two checks intentionally use separate evidence windows; this report must not be interpreted as simultaneous capture or as proof of physical recovery.
+
+Example:
+
+```bash
+python tools/field_acceptance.py http://192.168.4.1 evidence/field-run \
+  --duration 1800 \
+  --min-http-success 95 \
+  --min-fresh 90 \
+  --min-valid-percent 100 \
+  --require-type GPRMC \
+  --require-type GNGGA
+```
+
+The combined report is deliberately conservative: `passed=true` means the HTTP and TCP checks both met their configured thresholds, while `physical_recovery_verified` remains false until the controlled disconnect/reconnect health-sequence qualification is separately performed.
+
 ### Reproducible field evidence bundle
 
 Keep the machine-readable NMEA verdict, `/api/live` capture, serial log, and exact firmware commit together. The dependency-free collector copies selected evidence files and writes `EVIDENCE_MANIFEST.json` with byte sizes and SHA-256 hashes:
@@ -122,6 +138,6 @@ GitHub Actions runs the ESP32-S3 regression build and the production firmware bu
 
 ## Current status
 
-The GNSS recovery subsystem is implemented, integrated into the production firmware, and covered by the embedded regression configuration. The geofence subsystem is integrated into configuration, live diagnostics, dashboard status, transition timing, and regression coverage. The CI path compiles embedded tests without requiring physical hardware and publishes traceable firmware artifacts with integrity metadata. Field-test evidence can now be packaged with a deterministic SHA-256 manifest.
+The GNSS recovery subsystem is implemented, integrated into the production firmware, and covered by the embedded regression configuration. The geofence subsystem is integrated into configuration, live diagnostics, dashboard status, transition timing, and regression coverage. The CI path compiles embedded tests without requiring physical hardware and publishes traceable firmware artifacts with integrity metadata. Field-test evidence can now be packaged with a deterministic SHA-256 manifest, and the combined acceptance runner provides one operator-facing verdict across HTTP diagnostics and TCP NMEA streaming.
 
 The next milestone is physical receiver validation under startup failure, cable disconnect, prolonged silence, UART recovery, recovery cooldown, and controlled geofence boundary-crossing conditions. Keep the generated evidence bundle together for each hardware/receiver combination.
