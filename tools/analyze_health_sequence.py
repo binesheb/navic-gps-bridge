@@ -107,6 +107,8 @@ def main(argv=None):
     parser.add_argument("--json", action="store_true", dest="as_json")
     parser.add_argument("--max-recovery-seconds", type=float)
     args = parser.parse_args(argv)
+    if args.max_recovery_seconds is not None and not math.isfinite(args.max_recovery_seconds):
+        parser.error("max-recovery-seconds must be finite")
     if args.max_recovery_seconds is not None and args.max_recovery_seconds < 0:
         parser.error("max-recovery-seconds must be >= 0")
     try:
