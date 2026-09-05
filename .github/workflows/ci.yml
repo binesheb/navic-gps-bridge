@@ -57,6 +57,10 @@ jobs:
         working-directory: tools
         run: python -m unittest test_verify_field_evidence.py
 
+      - name: Run field evidence qualification self-tests
+        working-directory: tools
+        run: python -m unittest test_qualify_field_evidence.py
+
       - name: Compile embedded regression tests
         run: pio test -e esp32-s3-tests --without-uploading --without-testing --junit-output-path test-results.xml
 
