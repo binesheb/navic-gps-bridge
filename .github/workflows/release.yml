@@ -31,8 +31,32 @@ jobs:
         working-directory: tools
         run: python test_nmea_stream_check.py
 
-      - name: Run embedded regression tests
-        run: pio test -e esp32-s3-tests --junit-output-path test-results.xml
+      - name: Run firmware bundle verifier self-tests
+        working-directory: tools
+        run: python -m unittest test_verify_build_artifact.py
+
+      - name: Run live capture analyzer self-tests
+        working-directory: tools
+        run: python -m unittest test_analyze_live_capture.py
+
+      - name: Run live acceptance argument-validation self-tests
+        working-directory: tools
+        run: python -m unittest test_live_acceptance.py
+
+      - name: Run field evidence collector self-tests
+        working-directory: tools
+        run: python -m unittest test_collect_field_evidence.py
+
+      - name: Run field evidence verifier self-tests
+        working-directory: tools
+        run: python -m unittest test_verify_field_evidence.py
+
+      - name: Run field evidence qualification self-tests
+        working-directory: tools
+        run: python -m unittest test_qualify_field_evidence.py
+
+      - name: Compile embedded regression tests
+        run: pio test -e esp32-s3-tests --without-uploading --without-testing --junit-output-path test-results.xml
 
       - name: Upload test results
         if: always()
@@ -79,9 +103,20 @@ jobs:
             echo "python=$(python --version)"
             echo "platformio=$(pio --version)"
             echo "firmware_bytes=$(stat -c%s release/navic-gps-bridge-${{ github.ref_name }}.bin)"
+            echo "bootloader_bytes=$(stat -c%s release/bootloader.bin)"
+            echo "partitions_bytes=$(stat -c%s release/partitions.bin)"
             echo "build_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           } > release/BUILD-MANIFEST.txt
           sha256sum release/navic-gps-bridge-${{ github.ref_name }}.bin release/bootloader.bin release/partitions.bin release/BUILD-MANIFEST.txt > release/SHA256SUMS.txt
+
+      - name: Verify release files exist
+        run: |
+          test -s release/navic-gps-bridge-${{ github.ref_name }}.bin
+          test -s release/bootloader.bin
+          test -s release/partitions.bin
+          test -s release/BUILD-MANIFEST.txt
+          test -s release/SHA256SUMS.txt
+          sha256sum --check release/SHA256SUMS.txt
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
