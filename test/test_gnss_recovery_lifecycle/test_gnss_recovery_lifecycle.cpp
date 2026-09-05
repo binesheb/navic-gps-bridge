@@ -34,6 +34,16 @@ void test_lifecycle_accepted_data_refreshes_watchdog() {
   lifecycle.observeAccepted(true, 900);
   TEST_ASSERT_EQUAL_UINT32(900, lifecycle.status().lastDataMs);
 }
+
+void test_lifecycle_poll_arms_before_first_recovery_decision() {
+  auto config = makeConfig();
+  GnssRecoveryLifecycle lifecycle(config);
+  HardwareSerial serial(1);
+  TEST_ASSERT_FALSE(lifecycle.status().monitoring);
+  TEST_ASSERT_FALSE(lifecycle.poll(100, serial, config));
+  TEST_ASSERT_TRUE(lifecycle.status().monitoring);
+  TEST_ASSERT_EQUAL_UINT32(100, lifecycle.status().lastDataMs);
+}
 }  // namespace
 
 void setup() {
@@ -41,6 +51,7 @@ void setup() {
   RUN_TEST(test_lifecycle_arms_monitoring_at_startup);
   RUN_TEST(test_lifecycle_rejected_data_does_not_refresh_watchdog);
   RUN_TEST(test_lifecycle_accepted_data_refreshes_watchdog);
+  RUN_TEST(test_lifecycle_poll_arms_before_first_recovery_decision);
   UNITY_END();
 }
 
