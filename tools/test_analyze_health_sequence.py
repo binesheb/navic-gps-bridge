@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from analyze_health_sequence import analyze
+from analyze_health_sequence import analyze, main
 
 
 class HealthSequenceTests(unittest.TestCase):
@@ -64,6 +64,14 @@ class HealthSequenceTests(unittest.TestCase):
                     analyze(self.write_csv([
                         (0, "HEALTHY"), (value, "STALE"), (2, "RECOVERING")
                     ]))
+
+    def test_non_finite_recovery_limit_is_rejected_by_cli(self):
+        path = self.write_csv([(0, "HEALTHY")])
+        for value in ("nan", "inf", "-inf"):
+            with self.subTest(value=value):
+                with self.assertRaises(SystemExit) as context:
+                    main([path, "--max-recovery-seconds", value])
+                self.assertEqual(context.exception.code, 2)
 
 
 if __name__ == "__main__":
