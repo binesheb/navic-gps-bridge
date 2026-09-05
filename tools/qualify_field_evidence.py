@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
-import sys
 
 from verify_field_evidence import verify_bundle
 
@@ -43,8 +42,8 @@ def qualify(bundle: str, expected_commit: str | None = None,
     if manifest.get("schema") != 1:
         failures.append("FAIL: unsupported manifest schema")
 
-    # Qualification must include integrity verification, not merely trust the manifest.
-    failures.extend(f"FAIL: {failure}" for failure in verify_bundle(root))
+    integrity_failures = verify_bundle(root)
+    failures.extend(f"FAIL: {failure}" for failure in integrity_failures)
 
     firmware_commit = manifest.get("firmware_commit")
     if not isinstance(firmware_commit, str) or not firmware_commit.strip():
@@ -84,7 +83,7 @@ def qualify(bundle: str, expected_commit: str | None = None,
         "bundle": str(root),
         "firmware_commit": firmware_commit,
         "required_verdicts": [nmea_name, live_name],
-        "integrity_verified": not any("integrity" in failure.lower() for failure in failures),
+        "integrity_verified": not integrity_failures,
         "nmea_passed": verdicts.get(nmea_name, {}).get("passed") is True,
         "live_passed": verdicts.get(live_name, {}).get("passed") is True,
         "passed": not failures,
