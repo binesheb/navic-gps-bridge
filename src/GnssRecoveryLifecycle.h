@@ -33,6 +33,11 @@ class GnssRecoveryLifecycle {
             const BridgeConfig &config,
             int rxPin = 16,
             int txPin = 17) {
+    // Production code should normally call begin() after UART setup. Keep the
+    // lifecycle safe if a caller reaches poll() first: arm the watchdog at the
+    // first real poll instead of treating the default timestamp (0) as GNSS
+    // silence and triggering an immediate recovery.
+    if (!service_.controller().status().monitoring) service_.begin(nowMs);
     return GnssRecoveryIntegration::poll(
         service_, nowMs, serial, config, rxPin, txPin);
   }
