@@ -2,6 +2,20 @@
 
 The bridge exposes `GET /api/live` as the machine-readable runtime health endpoint used by the dashboard and external monitoring clients.
 
+## Overall status
+
+`status` is a deterministic summary of the current bridge/GNSS state. Consumers can use it as the primary coarse health signal while retaining the detailed fields below.
+
+| Status | Meaning |
+| --- | --- |
+| `RECOVERING` | GNSS recovery is actively restarting/reinitializing the receiver path. |
+| `NO_DATA` | No GNSS packet has been accepted since boot. |
+| `STALE` | GNSS data was previously available but is outside the live freshness window. |
+| `NO_FIX` | GNSS data is current, but there is no valid navigation fix. |
+| `HEALTHY` | GNSS data is current and a valid fix is present. |
+
+`RECOVERING` takes precedence over the other states so monitoring clients do not misclassify an intentional recovery action as an ordinary stale stream.
+
 ## GNSS freshness
 
 - `data_available` is `true` after at least one GNSS packet has been received since boot.
@@ -25,7 +39,7 @@ When available, `gnss_health` reports receiver online/stale/fix state, data age,
 
 ## Consumer guidance
 
-For monitoring and alerting, prefer these signals in order:
+For monitoring and alerting, prefer `status` as the coarse state, then inspect these signals for diagnosis:
 
 1. `gnss_health.receiver_online` / `gnss_health.stale` when the health snapshot is present.
 2. `data_available` to distinguish startup/no-data from a stale stream.
