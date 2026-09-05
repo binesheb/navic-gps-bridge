@@ -50,8 +50,29 @@ void test_latest_event_is_populated_after_event() {
   buildEventSummaryJson(engine, doc);
   TEST_ASSERT_TRUE(doc["has_latest"].as<bool>());
   TEST_ASSERT_EQUAL_UINT(1, doc["count"].as<unsigned long>());
+  TEST_ASSERT_EQUAL_UINT(1, doc["history_size"].as<unsigned long>());
   TEST_ASSERT_EQUAL_STRING("fix_acquired", doc["latest"]["type"] | "");
   TEST_ASSERT_EQUAL_UINT(1234, doc["latest"]["timestamp"].as<unsigned long>());
+}
+
+void test_cleared_history_has_no_latest_event() {
+  EventEngine engine = makeEngine();
+  GnssData data{};
+  data.fix = true;
+  data.satellites = 8;
+  data.hdop = 1.2f;
+  engine.update(data, true, 1234);
+  TEST_ASSERT_EQUAL_UINT(1, engine.history().size());
+
+  engine.clearHistory();
+
+  JsonDocument doc;
+  buildEventsJson(engine, doc);
+  TEST_ASSERT_EQUAL_UINT(0, doc["count"].as<unsigned long>());
+  TEST_ASSERT_EQUAL_UINT(0, doc["history_size"].as<unsigned long>());
+  TEST_ASSERT_FALSE(doc["has_latest"].as<bool>());
+  TEST_ASSERT_EQUAL_UINT(0, doc["latest"].as<JsonObject>().size());
+  TEST_ASSERT_EQUAL_UINT(0, doc["events"].as<JsonArray>().size());
 }
 
 void setup() {
@@ -60,6 +81,7 @@ void setup() {
   RUN_TEST(test_empty_history_payload_has_stable_summary);
   RUN_TEST(test_summary_matches_full_payload_metadata);
   RUN_TEST(test_latest_event_is_populated_after_event);
+  RUN_TEST(test_cleared_history_has_no_latest_event);
   UNITY_END();
 }
 
