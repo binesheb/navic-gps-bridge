@@ -13,13 +13,19 @@ from qualify_field_evidence import qualify
 
 
 class QualificationTests(unittest.TestCase):
-    def make_bundle(self, nmea=True, live=True, commit="abc123"):
+    def make_bundle(self, nmea=True, live=True, health_sequence=None, commit="abc123"):
         temp = tempfile.TemporaryDirectory()
         root = Path(temp.name)
         files = []
-        for name, passed in (("nmea-verdict.json", nmea), ("live-verdict.json", live)):
+        verdicts = [("nmea-verdict.json", nmea), ("live-verdict.json", live)]
+        if health_sequence is not None:
+            verdicts.append(("health-sequence.json", health_sequence))
+        for name, passed in verdicts:
             path = root / name
-            path.write_text(json.dumps({"passed": passed}) + "\n", encoding="utf-8")
+            value = {"passed": passed}
+            if name == "health-sequence.json":
+                value["qualification_ready"] = passed
+            path.write_text(json.dumps(value) + "\n", encoding="utf-8")
             digest = hashlib.sha256(path.read_bytes()).hexdigest()
             files.append({"name": name, "bytes": path.stat().st_size, "sha256": digest})
         (root / "EVIDENCE_MANIFEST.json").write_text(
@@ -35,6 +41,17 @@ class QualificationTests(unittest.TestCase):
         self.assertEqual([], failures)
         self.assertTrue(report["passed"])
         self.assertTrue(report["integrity_verified"])
+        self.assertIsNone(report["health_sequence_passed"])
+
+    def test_passes_when_physical_recovery_verdict_is_required_and_valid(self):
+        temp, root = self.make_bundle(health_sequence=True)
+        self.addCleanup(temp.cleanup)
+        report, failures = qualify(
+            str(root), expected_commit="abc123", health_sequence_name="health-sequence.json"
+        )
+        self.assertEqual([], failures)
+        self.assertTrue(report["passed"])
+        self.assertTrue(report["health_sequence_passed"])
 
     def test_rejects_failed_verdict(self):
         temp, root = self.make_bundle(nmea=False)
@@ -42,6 +59,25 @@ class QualificationTests(unittest.TestCase):
         report, failures = qualify(str(root), expected_commit="abc123")
         self.assertFalse(report["passed"])
         self.assertTrue(any("nmea-verdict.json" in failure for failure in failures))
+
+    def test_rejects_physical_recovery_verdict_not_ready(self):
+        temp, root = self.make_bundle(health_sequence=False)
+        self.addCleanup(temp.cleanup)
+        report, failures = qualify(
+            str(root), expected_commit="abc123", health_sequence_name="health-sequence.json"
+        )
+        self.assertFalse(report["passed"])
+        self.assertFalse(report["health_sequence_passed"])
+        self.assertTrue(any("qualification_ready=true" in failure for failure in failures))
+
+    def test_rejects_missing_physical_recovery_verdict(self):
+        temp, root = self.make_bundle()
+        self.addCleanup(temp.cleanup)
+        report, failures = qualify(
+            str(root), expected_commit="abc123", health_sequence_name="health-sequence.json"
+        )
+        self.assertFalse(report["passed"])
+        self.assertTrue(any("required health-sequence verdict" in failure for failure in failures))
 
     def test_rejects_commit_mismatch(self):
         temp, root = self.make_bundle()
@@ -63,7 +99,6 @@ class QualificationTests(unittest.TestCase):
     def test_rejects_tampered_verdict(self):
         temp, root = self.make_bundle()
         self.addCleanup(temp.cleanup)
-        # Keep the byte count unchanged so the test specifically exercises the digest check.
         (root / "nmea-verdict.json").write_text(json.dumps({"passed": None}) + "\n", encoding="utf-8")
         report, failures = qualify(str(root), expected_commit="abc123")
         self.assertFalse(report["passed"])
