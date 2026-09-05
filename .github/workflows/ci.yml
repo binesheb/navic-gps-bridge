@@ -45,6 +45,10 @@ jobs:
         working-directory: tools
         run: python -m unittest test_analyze_live_capture.py
 
+      - name: Run live health sequence analyzer self-tests
+        working-directory: tools
+        run: python -m unittest test_analyze_health_sequence.py
+
       - name: Run live acceptance argument-validation self-tests
         working-directory: tools
         run: python -m unittest test_live_acceptance.py
