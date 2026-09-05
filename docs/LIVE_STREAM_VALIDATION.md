@@ -51,19 +51,36 @@ Talker reporting is observational rather than a hard-coded pass/fail rule. This 
 
 The command exits with status `1` when the stream cannot be read or when any configured acceptance gate fails.
 
+## API live capture
+
+Use `tools/live_capture.py` to capture `/api/live` telemetry alongside the TCP stream:
+
+```bash
+python tools/live_capture.py http://192.168.4.1 live.csv --interval 1 --duration 1800
+```
+
+Each successful row now preserves the machine-readable `/api/live` `status`
+field (`RECOVERING`, `NO_DATA`, `STALE`, `NO_FIX`, or `HEALTHY`) in addition to
+the detailed GNSS, recovery, geofence, timing, and HTTP fields. This makes the
+coarse health state auditable in the same evidence file used for recovery tests.
+
+A failed HTTP sample remains in the CSV with `http_ok=False` and its `error`.
+The CSV is intentionally retained even when the acceptance run fails.
+
 ## Field-test sequence
 
 1. Flash the production firmware.
 2. Connect the GNSS receiver to the configured UART.
 3. Connect the laptop to the bridge network.
-4. Run the checker for at least 30 seconds.
-5. For strict validation, require `GPRMC` and `GPGGA` and require `--min-valid-percent 100`.
-6. Confirm the actual capture duration reaches the requested duration.
-7. Record the observed talker IDs and RMC/GGA/GSV counts from the JSON verdict.
-8. Compare the observed stream behaviour with `/api/live`.
-9. Then test a downstream GPS application against TCP port `10110`.
+4. Run the TCP checker for at least 30 seconds.
+5. Start an `/api/live` capture for the same test window.
+6. For strict validation, require `GPRMC` and `GPGGA` and require `--min-valid-percent 100`.
+7. Confirm the actual capture duration reaches the requested duration.
+8. Record the observed talker IDs and RMC/GGA/GSV counts from the JSON verdict.
+9. Compare the observed TCP stream with `/api/live` status and recovery counters.
+10. Then test a downstream GPS application against TCP port `10110`.
 
-For GNSS recovery testing, disconnect the receiver after a healthy stream has been established. Use the dashboard `/api/live` recovery counters and the NMEA checker together: the API capture should show the induced silence/recovery event, while the NMEA capture should show the downstream stream stopping and subsequently resuming with valid checksums.
+For GNSS recovery testing, disconnect the receiver after a healthy stream has been established. The `/api/live` capture should make the recovery state transition visible, while the NMEA capture should show the downstream stream stopping and subsequently resuming with valid checksums.
 
 ## Interpreting the JSON evidence
 
@@ -78,4 +95,4 @@ A passing `--json-output` report contains:
 - formatter counts under `types`;
 - talker counts under `talkers`.
 
-A failed report retains the same evidence and adds a `failures` array. Keep this JSON file with the corresponding `/api/live` CSV/JSON capture and firmware commit/tag so a field result can be reproduced and audited later.
+A failed report retains the same evidence and adds a `failures` array. Keep this JSON file with the corresponding `/api/live` CSV and firmware commit/tag so a field result can be reproduced and audited later.
