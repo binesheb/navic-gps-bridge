@@ -18,6 +18,7 @@ FIELDS = [
     "timestamp_utc",
     "elapsed_s",
     "http_ok",
+    "status",
     "data_available",
     "data_fresh",
     "data_age_ms",
@@ -55,6 +56,7 @@ def _flatten(payload):
     health = payload.get("gnss_health") or {}
     recovery = payload.get("gnss_recovery") or {}
     return {
+        "status": payload.get("status"),
         "data_available": payload.get("data_available"),
         "data_fresh": payload.get("data_fresh"),
         "data_age_ms": payload.get("data_age_ms"),
