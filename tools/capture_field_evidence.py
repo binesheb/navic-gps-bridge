@@ -19,9 +19,11 @@ def main(argv=None):
     p.add_argument("--interval", type=float, default=1.0)
     p.add_argument("--nmea-port", type=int, default=10110)
     p.add_argument("--timeout", type=float, default=3.0)
+    p.add_argument("--reconnect-interval", type=float, default=1.0,
+                   help="seconds to wait before retrying a disconnected NMEA stream")
     a = p.parse_args(argv)
-    if a.duration <= 0 or a.interval <= 0 or a.timeout <= 0:
-        p.error("duration, interval, and timeout must be > 0")
+    if a.duration <= 0 or a.interval <= 0 or a.timeout <= 0 or a.reconnect_interval <= 0:
+        p.error("duration, interval, timeout, and reconnect-interval must be > 0")
     if not 1 <= a.nmea_port <= 65535:
         p.error("nmea-port must be between 1 and 65535")
 
@@ -30,27 +32,39 @@ def main(argv=None):
     stop = threading.Event(); errors = []
     start = time.monotonic(); wall_start = time.time()
     nmea_count = 0
+    nmea_connections = 0
+    nmea_reconnects = 0
     lock = threading.Lock()
 
     host = a.base_url.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0]
 
     def nmea_worker():
-        nonlocal nmea_count
-        try:
-            with socket.create_connection((host, a.nmea_port), timeout=a.timeout) as s, nmea_path.open("w", encoding="utf-8") as f:
-                s.settimeout(0.5); buf = b""
-                while not stop.is_set():
-                    try: buf += s.recv(4096)
-                    except socket.timeout: continue
-                    if not buf: break
-                    while b"\n" in buf:
-                        line, buf = buf.split(b"\n", 1)
-                        text = line.decode("ascii", "replace").rstrip("\r")
-                        f.write(text + "\n"); f.flush()
-                        if text.startswith("$"):
-                            with lock: nmea_count += 1
-        except Exception as exc:
-            errors.append(f"NMEA: {exc}")
+        nonlocal nmea_count, nmea_connections, nmea_reconnects
+        first_connection = True
+        while not stop.is_set():
+            try:
+                with socket.create_connection((host, a.nmea_port), timeout=a.timeout) as s, nmea_path.open("a", encoding="utf-8") as f:
+                    with lock:
+                        nmea_connections += 1
+                        if not first_connection:
+                            nmea_reconnects += 1
+                    first_connection = False
+                    s.settimeout(0.5); buf = b""
+                    while not stop.is_set():
+                        try: buf += s.recv(4096)
+                        except socket.timeout: continue
+                        if not buf: break
+                        while b"\n" in buf:
+                            line, buf = buf.split(b"\n", 1)
+                            text = line.decode("ascii", "replace").rstrip("\r")
+                            f.write(text + "\n"); f.flush()
+                            if text.startswith("$"):
+                                with lock: nmea_count += 1
+            except Exception as exc:
+                with lock:
+                    errors.append(f"NMEA: {exc}")
+            if not stop.is_set():
+                stop.wait(a.reconnect_interval)
 
     t = threading.Thread(target=nmea_worker, daemon=True); t.start()
     fields = ["elapsed_s", "timestamp", "fix", "latitude", "longitude", "altitude_m", "speed_kmh", "satellites", "health_state"]
@@ -69,10 +83,11 @@ def main(argv=None):
             except Exception as exc:
                 http_errors += 1; errors.append(f"HTTP: {exc}")
             stop.wait(a.interval)
-    stop.set(); t.join(timeout=max(1.0, a.timeout + 0.5))
+    stop.set(); t.join(timeout=max(1.0, a.timeout + a.reconnect_interval + 0.5))
     report = {"schema_version": 1, "base_url": a.base_url, "duration_s": a.duration, "interval_s": a.interval,
               "started_unix_s": wall_start, "live_samples": samples, "http_errors": http_errors,
-              "nmea_sentences": nmea_count, "nmea_port": a.nmea_port, "errors": errors,
+              "nmea_sentences": nmea_count, "nmea_port": a.nmea_port, "nmea_connections": nmea_connections,
+              "nmea_reconnects": nmea_reconnects, "errors": errors,
               "simultaneous_window": True}
     meta_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2, sort_keys=True))
