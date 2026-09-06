@@ -61,6 +61,10 @@ jobs:
         working-directory: tools
         run: python -m unittest test_verify_field_evidence.py
 
+      - name: Run field evidence manifest verifier self-tests
+        working-directory: tools
+        run: python -m unittest test_verify_evidence_manifest.py
+
       - name: Run field evidence qualification self-tests
         working-directory: tools
         run: python -m unittest test_qualify_field_evidence.py
