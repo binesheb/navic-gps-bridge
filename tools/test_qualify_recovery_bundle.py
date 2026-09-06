@@ -1,3 +1,4 @@
+import hashlib
 import json
 import tempfile
 import unittest
@@ -32,6 +33,20 @@ class RecoveryBundleTests(unittest.TestCase):
         self.assertTrue(report["bundle_integrity"])
         self.assertTrue(report["qualification_ready"])
         self.assertTrue(report["simultaneous_window"])
+
+    def test_valid_bundle_includes_sha256_fingerprints(self):
+        root = self.write_bundle()
+        report = validate_bundle(root)
+        digests = report["evidence_sha256"]
+        self.assertEqual(set(digests), {"CAPTURE.json", "live.csv", "nmea_timeline.log"})
+        for digest in digests.values():
+            self.assertRegex(digest, r"^[0-9a-f]{64}$")
+
+    def test_fingerprint_matches_live_evidence(self):
+        root = self.write_bundle()
+        report = validate_bundle(root)
+        expected = hashlib.sha256((root / "live.csv").read_bytes()).hexdigest()
+        self.assertEqual(report["evidence_sha256"]["live.csv"], expected)
 
     def test_rejects_non_simultaneous_capture(self):
         root = self.write_bundle({
