@@ -44,6 +44,28 @@ def _metadata_items(metadata: dict | None) -> list[tuple[str, str]]:
     return items
 
 
+def _manifest_metadata(manifest: dict) -> dict:
+    if manifest.get("schema") != 1:
+        raise ValueError("evidence manifest schema must be 1")
+    metadata = {}
+    for key in ("device", "firmware_commit", "receiver", "test_id"):
+        value = manifest.get(key)
+        if value is not None:
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"manifest[{key}] must be a non-empty string")
+            metadata[key] = value.strip()
+    return metadata
+
+
+def _merge_metadata(manifest_metadata: dict, cli_metadata: dict) -> dict:
+    merged = dict(manifest_metadata)
+    for key, value in cli_metadata.items():
+        if key in merged and merged[key] != value:
+            raise ValueError(f"metadata mismatch for {key}: manifest and CLI differ")
+        merged[key] = value
+    return merged
+
+
 def render(qualification: dict, verification: dict | None = None, metadata: dict | None = None) -> str:
     if qualification.get("schema_version") != 1:
         raise ValueError("qualification report schema_version must be 1")
@@ -109,6 +131,7 @@ def main(argv=None):
     parser.add_argument("qualification_report")
     parser.add_argument("output")
     parser.add_argument("--verification-report")
+    parser.add_argument("--manifest", help="EVIDENCE_MANIFEST.json supplying traceability metadata")
     parser.add_argument("--device")
     parser.add_argument("--firmware-commit")
     parser.add_argument("--receiver")
@@ -119,7 +142,7 @@ def main(argv=None):
     verification = None
     if args.verification_report:
         verification = _load_object(Path(args.verification_report), "verification report")
-    metadata = {
+    cli_metadata = {
         key: value
         for key, value in {
             "device": args.device,
@@ -130,6 +153,12 @@ def main(argv=None):
         if value is not None
     }
     try:
+        manifest_metadata = {}
+        if args.manifest:
+            manifest_metadata = _manifest_metadata(
+                _load_object(Path(args.manifest), "evidence manifest")
+            )
+        metadata = _merge_metadata(manifest_metadata, cli_metadata)
         text = render(qualification, verification, metadata)
     except ValueError as exc:
         parser.error(str(exc))

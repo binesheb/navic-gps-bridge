@@ -109,7 +109,7 @@ The combined report is deliberately conservative: `passed=true` means the HTTP a
 
 ### Reproducible field evidence bundle
 
-Keep the machine-readable NMEA verdict, `/api/live` capture, serial log, and exact firmware commit together. The dependency-free collector copies selected evidence files and writes `EVIDENCE_MANIFEST.json` with byte sizes and SHA-256 hashes:
+Keep the machine-readable NMEA verdict, `/api/live` capture, serial log, and exact firmware commit together. The dependency-free collector copies selected evidence files and writes `EVIDENCE_MANIFEST.json` with byte sizes and SHA-256 hashes. The manifest can also preserve the device, GNSS receiver, and operator-assigned test ID so the evidence package has one traceability record:
 
 ```bash
 python tools/collect_field_evidence.py evidence/ \
@@ -117,25 +117,24 @@ python tools/collect_field_evidence.py evidence/ \
   --file live.csv=live.csv \
   --file serial.log=serial.log \
   --firmware-commit YOUR_FIRMWARE_COMMIT \
-  --device bridge-01
+  --device bridge-01 \
+  --receiver "GNSS receiver model" \
+  --test-id recovery-2026-09-06-01
 ```
 
 The manifest is intentionally separate from the hashed evidence files, avoiding a self-referential checksum and making the evidence directory straightforward to archive and audit.
 
-For a completed recovery qualification bundle, the machine-readable qualification report can be independently checked with `tools/verify_recovery_report.py`. To produce an operator-facing Markdown summary after verification, use:
+For a completed recovery qualification bundle, the machine-readable qualification report can be independently checked with `tools/verify_recovery_report.py`. To produce an operator-facing Markdown summary after verification, use the same manifest as the source of traceability metadata:
 
 ```bash
 python tools/field_qualification_report.py \
   evidence/recovery-qualification.json \
   evidence/FIELD_QUALIFICATION.md \
   --verification-report evidence/recovery-verification.json \
-  --device bridge-01 \
-  --receiver "GNSS receiver model" \
-  --firmware-commit YOUR_FIRMWARE_COMMIT \
-  --test-id recovery-2026-09-06-01
+  --manifest evidence/EVIDENCE_MANIFEST.json
 ```
 
-The generated report preserves the qualification verdict, test identity metadata, health sequence, recovery/outage timing, evidence SHA-256 fingerprints, and post-test verification result. Test identity is optional for compatibility, but it is strongly recommended for hardware qualification so a report can be traced to the exact bridge, receiver, firmware build, and test run.
+The generated report preserves the qualification verdict, test identity metadata, health sequence, recovery/outage timing, evidence SHA-256 fingerprints, and post-test verification result. If CLI identity metadata is also supplied, it must agree with the manifest; mismatches are rejected to prevent traceability drift.
 
 For regression testing:
 
@@ -153,6 +152,6 @@ GitHub Actions runs the ESP32-S3 regression build and the production firmware bu
 
 ## Current status
 
-The GNSS recovery subsystem is implemented, integrated into the production firmware, and covered by the embedded regression configuration. The geofence subsystem is integrated into configuration, live diagnostics, dashboard status, transition timing, and regression coverage. The CI path compiles embedded tests without requiring physical hardware and publishes traceable firmware artifacts with integrity metadata. Field-test evidence can now be packaged with a deterministic SHA-256 manifest, and the combined acceptance runner provides one operator-facing verdict across HTTP diagnostics and TCP NMEA streaming. Recovery qualification reports can now be independently verified and rendered as an auditable operator-facing field report with optional test identity metadata.
+The GNSS recovery subsystem is implemented, integrated into the production firmware, and covered by the embedded regression configuration. The geofence subsystem is integrated into configuration, live diagnostics, dashboard status, transition timing, and regression coverage. The CI path compiles embedded tests without requiring physical hardware and publishes traceable firmware artifacts with integrity metadata. Field-test evidence can now be packaged with a deterministic SHA-256 manifest carrying device, receiver, and test identity metadata, and the combined acceptance runner provides one operator-facing verdict across HTTP diagnostics and TCP NMEA streaming. Recovery qualification reports can be independently verified and rendered as auditable operator-facing field reports without duplicating or overriding manifest identity.
 
 The next milestone is physical receiver validation under startup failure, cable disconnect, prolonged silence, UART recovery, recovery cooldown, and controlled geofence boundary-crossing conditions. Keep the generated evidence bundle together for each hardware/receiver combination.

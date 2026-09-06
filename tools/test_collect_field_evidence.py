@@ -30,14 +30,31 @@ class FieldEvidenceTests(unittest.TestCase):
                 "--file", f"nmea-verdict.json={source}",
                 "--firmware-commit", "abc123",
                 "--device", "bridge-01",
+                "--receiver", "u-blox M10",
+                "--test-id", "recovery-2026-09-06-01",
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual((output / "nmea-verdict.json").read_text(encoding="utf-8"), source.read_text(encoding="utf-8"))
             manifest = json.loads((output / "EVIDENCE_MANIFEST.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["schema"], 1)
             self.assertEqual(manifest["firmware_commit"], "abc123")
+            self.assertEqual(manifest["device"], "bridge-01")
+            self.assertEqual(manifest["receiver"], "u-blox M10")
+            self.assertEqual(manifest["test_id"], "recovery-2026-09-06-01")
             self.assertEqual(manifest["files"][0]["name"], "nmea-verdict.json")
             self.assertEqual(len(manifest["files"][0]["sha256"]), 64)
+
+    def test_rejects_blank_metadata(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / "serial.log"
+            source.write_text("ok\n", encoding="utf-8")
+            result = self.run_tool(
+                Path(temp) / "evidence",
+                "--file", f"serial.log={source}",
+                "--device", "   ",
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("device must be a non-empty string", result.stderr)
 
     def test_rejects_missing_source(self):
         with tempfile.TemporaryDirectory() as temp:
