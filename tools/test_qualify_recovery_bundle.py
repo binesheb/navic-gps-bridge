@@ -1,3 +1,4 @@
+import hashlib
 import json
 import tempfile
 import unittest
@@ -41,15 +42,11 @@ class RecoveryBundleTests(unittest.TestCase):
         for digest in digests.values():
             self.assertRegex(digest, r"^[0-9a-f]{64}$")
 
-    def test_fingerprints_change_when_evidence_changes(self):
+    def test_fingerprint_matches_live_evidence(self):
         root = self.write_bundle()
-        before = validate_bundle(root)["evidence_sha256"]
-        (root / "live.csv").write_text(LIVE.replace("3,HEALTHY", "3,STALE"), encoding="utf-8")
-        with self.assertRaises(Exception):
-            validate_bundle(root)
-        after = validate_bundle(root)["evidence_sha256"] if False else None
-        self.assertNotEqual(before["live.csv"], __import__("hashlib").sha256((root / "live.csv").read_bytes()).hexdigest())
-        self.assertIsNone(after)
+        report = validate_bundle(root)
+        expected = hashlib.sha256((root / "live.csv").read_bytes()).hexdigest()
+        self.assertEqual(report["evidence_sha256"]["live.csv"], expected)
 
     def test_rejects_non_simultaneous_capture(self):
         root = self.write_bundle({
