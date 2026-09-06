@@ -28,18 +28,32 @@ def main(argv=None):
         p.error("nmea-port must be between 1 and 65535")
 
     out = Path(a.output_dir); out.mkdir(parents=True, exist_ok=True)
-    live_path, nmea_path, meta_path = out / "live.csv", out / "nmea.log", out / "CAPTURE.json"
+    live_path = out / "live.csv"
+    nmea_path = out / "nmea.log"
+    timeline_path = out / "nmea_timeline.log"
+    meta_path = out / "CAPTURE.json"
     stop = threading.Event(); errors = []
     start = time.monotonic(); wall_start = time.time()
     nmea_count = 0
     nmea_connections = 0
     nmea_reconnects = 0
+    nmea_disconnects = 0
+    timeline_records = 0
     lock = threading.Lock()
 
     host = a.base_url.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0]
 
+    def timeline(event, payload=""):
+        nonlocal timeline_records
+        elapsed = time.monotonic() - start
+        wall = wall_start + elapsed
+        with timeline_path.open("a", encoding="utf-8") as f:
+            f.write(f"{wall:.3f}\t{elapsed:.3f}\t{event}\t{payload}\n")
+        with lock:
+            timeline_records += 1
+
     def nmea_worker():
-        nonlocal nmea_count, nmea_connections, nmea_reconnects
+        nonlocal nmea_count, nmea_connections, nmea_reconnects, nmea_disconnects
         first_connection = True
         while not stop.is_set():
             try:
@@ -48,6 +62,7 @@ def main(argv=None):
                         nmea_connections += 1
                         if not first_connection:
                             nmea_reconnects += 1
+                    timeline("CONNECT", f"port={a.nmea_port}")
                     first_connection = False
                     s.settimeout(0.5); buf = b""
                     while not stop.is_set():
@@ -60,12 +75,19 @@ def main(argv=None):
                             f.write(text + "\n"); f.flush()
                             if text.startswith("$"):
                                 with lock: nmea_count += 1
+                                timeline("NMEA", text)
+                    if not stop.is_set():
+                        with lock: nmea_disconnects += 1
+                        timeline("DISCONNECT", "peer_closed")
             except Exception as exc:
-                with lock:
+                if not stop.is_set():
+                    with lock: nmea_disconnects += 1
+                    timeline("DISCONNECT", str(exc).replace("\t", " "))
                     errors.append(f"NMEA: {exc}")
             if not stop.is_set():
                 stop.wait(a.reconnect_interval)
 
+    timeline_path.write_text("", encoding="utf-8")
     t = threading.Thread(target=nmea_worker, daemon=True); t.start()
     fields = ["elapsed_s", "timestamp", "fix", "latitude", "longitude", "altitude_m", "speed_kmh", "satellites", "health_state"]
     samples = 0
@@ -84,11 +106,12 @@ def main(argv=None):
                 http_errors += 1; errors.append(f"HTTP: {exc}")
             stop.wait(a.interval)
     stop.set(); t.join(timeout=max(1.0, a.timeout + a.reconnect_interval + 0.5))
-    report = {"schema_version": 1, "base_url": a.base_url, "duration_s": a.duration, "interval_s": a.interval,
+    report = {"schema_version": 2, "base_url": a.base_url, "duration_s": a.duration, "interval_s": a.interval,
               "started_unix_s": wall_start, "live_samples": samples, "http_errors": http_errors,
               "nmea_sentences": nmea_count, "nmea_port": a.nmea_port, "nmea_connections": nmea_connections,
-              "nmea_reconnects": nmea_reconnects, "errors": errors,
-              "simultaneous_window": True}
+              "nmea_reconnects": nmea_reconnects, "nmea_disconnects": nmea_disconnects,
+              "nmea_timeline_records": timeline_records, "nmea_timeline": "nmea_timeline.log",
+              "errors": errors, "simultaneous_window": True}
     meta_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2, sort_keys=True))
     return 0 if samples and nmea_count else 1

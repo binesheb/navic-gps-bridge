@@ -23,6 +23,13 @@ class CaptureFieldEvidenceTests(unittest.TestCase):
     def test_module_has_main(self):
         self.assertTrue(callable(capture_field_evidence.main))
 
+    def test_timeline_format_is_documented_by_source(self):
+        source = open(capture_field_evidence.__file__, encoding="utf-8").read()
+        self.assertIn('timeline("CONNECT"', source)
+        self.assertIn('timeline("DISCONNECT"', source)
+        self.assertIn('timeline("NMEA", text)', source)
+        self.assertIn('"nmea_timeline": "nmea_timeline.log"', source)
+
 
 if __name__ == "__main__":
     unittest.main()
