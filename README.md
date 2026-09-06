@@ -122,6 +122,14 @@ python tools/collect_field_evidence.py evidence/ \
   --test-id recovery-2026-09-06-01
 ```
 
+Before trusting a bundle for qualification, run the lightweight preflight validator:
+
+```bash
+python tools/validate_field_bundle.py evidence/EVIDENCE_MANIFEST.json
+```
+
+The preflight requires complete traceability (`firmware_commit`, `device`, `receiver`, and `test_id`) and the standard `nmea-verdict.json`, `live.csv`, and `serial.log` evidence files. It intentionally runs before the hash verifier: it answers whether the bundle is structurally complete for a field test, while `verify_evidence_manifest.py` answers whether the archived files still match their recorded hashes.
+
 The manifest is intentionally separate from the hashed evidence files, avoiding a self-referential checksum and making the evidence directory straightforward to archive and audit. After copying or archiving a bundle, independently verify every listed file with:
 
 ```bash
@@ -158,6 +166,6 @@ GitHub Actions runs the ESP32-S3 regression build and the production firmware bu
 
 ## Current status
 
-The GNSS recovery subsystem is implemented, integrated into the production firmware, and covered by the embedded regression configuration. The geofence subsystem is integrated into configuration, live diagnostics, dashboard status, transition timing, and regression coverage. The CI path compiles embedded tests without requiring physical hardware and publishes traceable firmware artifacts with integrity metadata. Field-test evidence can now be packaged with a deterministic SHA-256 manifest carrying device, receiver, and test identity metadata, independently verified after archival, and used as the traceability source for auditable qualification reports. The combined acceptance runner provides one operator-facing verdict across HTTP diagnostics and TCP NMEA streaming. Recovery qualification reports can be independently verified and rendered as auditable operator-facing field reports without duplicating or overriding manifest identity.
+The GNSS recovery subsystem is implemented, integrated into the production firmware, and covered by the embedded regression configuration. The geofence subsystem is integrated into configuration, live diagnostics, dashboard status, transition timing, and regression coverage. The CI path compiles embedded tests without requiring physical hardware and publishes traceable firmware artifacts with integrity metadata. Field-test evidence can now be packaged with a deterministic SHA-256 manifest carrying device, receiver, and test identity metadata, independently verified after archival, and preflighted for required field-test completeness before qualification. The combined acceptance runner provides one operator-facing verdict across HTTP diagnostics and TCP NMEA streaming. Recovery qualification reports can be independently verified and rendered as auditable operator-facing field reports without duplicating or overriding manifest identity.
 
 The next milestone is physical receiver validation under startup failure, cable disconnect, prolonged silence, UART recovery, recovery cooldown, and controlled geofence boundary-crossing conditions. Keep the generated evidence bundle together for each hardware/receiver combination.
