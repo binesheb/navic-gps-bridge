@@ -8,25 +8,30 @@ from pathlib import Path
 from run_field_qualification import run
 
 
+LIVE = """elapsed_s,status
+0,HEALTHY
+1,STALE
+2,RECOVERING
+3,HEALTHY
+"""
+TIMELINE = """1000.0\t0.0\tCONNECT\tport=10110
+1001.0\t1.0\tDISCONNECT\tpeer_closed
+1001.5\t1.5\tCONNECT\tport=10110
+1002.0\t2.0\tNMEA\t$GNRMC,example
+"""
+
+
 class FieldQualificationRunnerTests(unittest.TestCase):
     def make_bundle(self, root: Path):
         bundle = root / "bundle"
         bundle.mkdir()
-        (bundle / "live.csv").write_text(
-            "elapsed_s,status\n0,HEALTHY\n2,STALE\n3,RECOVERING\n8,HEALTHY\n",
-            encoding="utf-8",
-        )
-        (bundle / "nmea_timeline.log").write_text(
-            "100\t0\tCONNECT\tport=10110\n"
-            "103\t3\tDISCONNECT\tpeer_closed\n"
-            "105\t5\tCONNECT\tport=10110\n",
-            encoding="utf-8",
-        )
+        (bundle / "live.csv").write_text(LIVE, encoding="utf-8")
+        (bundle / "nmea_timeline.log").write_text(TIMELINE, encoding="utf-8")
         (bundle / "nmea-verdict.json").write_text("{\"passed\":true}\n", encoding="utf-8")
         (bundle / "serial.log").write_text("boot\nrecovered\n", encoding="utf-8")
         capture = {
             "schema_version": 2,
-            "duration_s": 8.0,
+            "duration_s": 5.0,
             "nmea_timeline": "nmea_timeline.log",
             "simultaneous_window": True,
             "http_errors": 0,
