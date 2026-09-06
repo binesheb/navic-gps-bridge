@@ -53,14 +53,16 @@ class EvidenceManifestVerifierTests(unittest.TestCase):
     def test_detects_tampering(self):
         with tempfile.TemporaryDirectory() as temp:
             _, manifest, nmea = self.make_bundle(Path(temp))
-            nmea.write_text("tampered\n", encoding="utf-8")
+            # Keep the byte count unchanged so the test specifically exercises
+            # content hashing rather than the earlier size-integrity check.
+            nmea.write_text("XXXXXXXXXXX\n", encoding="utf-8")
             result = self.run_tool(manifest)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("SHA-256 mismatch", result.stdout)
 
     def test_rejects_manifest_self_reference(self):
         with tempfile.TemporaryDirectory() as temp:
-            evidence, manifest, _ = self.make_bundle(Path(temp))
+            _, manifest, _ = self.make_bundle(Path(temp))
             data = json.loads(manifest.read_text(encoding="utf-8"))
             data["files"].append({"name": "EVIDENCE_MANIFEST.json", "bytes": manifest.stat().st_size, "sha256": digest(manifest)})
             manifest.write_text(json.dumps(data), encoding="utf-8")
