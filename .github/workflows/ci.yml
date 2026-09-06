@@ -65,6 +65,10 @@ jobs:
         working-directory: tools
         run: python -m unittest test_verify_evidence_manifest.py
 
+      - name: Run field evidence bundle preflight self-tests
+        working-directory: tools
+        run: python -m unittest test_validate_field_bundle.py
+
       - name: Run field evidence qualification self-tests
         working-directory: tools
         run: python -m unittest test_qualify_field_evidence.py
