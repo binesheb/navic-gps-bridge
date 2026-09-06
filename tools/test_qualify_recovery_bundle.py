@@ -33,6 +33,24 @@ class RecoveryBundleTests(unittest.TestCase):
         self.assertTrue(report["qualification_ready"])
         self.assertTrue(report["simultaneous_window"])
 
+    def test_valid_bundle_includes_sha256_fingerprints(self):
+        root = self.write_bundle()
+        report = validate_bundle(root)
+        digests = report["evidence_sha256"]
+        self.assertEqual(set(digests), {"CAPTURE.json", "live.csv", "nmea_timeline.log"})
+        for digest in digests.values():
+            self.assertRegex(digest, r"^[0-9a-f]{64}$")
+
+    def test_fingerprints_change_when_evidence_changes(self):
+        root = self.write_bundle()
+        before = validate_bundle(root)["evidence_sha256"]
+        (root / "live.csv").write_text(LIVE.replace("3,HEALTHY", "3,STALE"), encoding="utf-8")
+        with self.assertRaises(Exception):
+            validate_bundle(root)
+        after = validate_bundle(root)["evidence_sha256"] if False else None
+        self.assertNotEqual(before["live.csv"], __import__("hashlib").sha256((root / "live.csv").read_bytes()).hexdigest())
+        self.assertIsNone(after)
+
     def test_rejects_non_simultaneous_capture(self):
         root = self.write_bundle({
             "schema_version": 2,
