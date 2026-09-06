@@ -93,6 +93,10 @@ jobs:
         working-directory: tools
         run: python -m unittest test_field_qualification_report.py
 
+      - name: Run complete field qualification runner self-tests
+        working-directory: tools
+        run: python -m unittest test_run_field_qualification.py
+
       - name: Compile embedded regression tests
         run: pio test -e esp32-s3-tests --without-uploading --without-testing --junit-output-path test-results.xml
 
