@@ -28,6 +28,15 @@ def parse_file_spec(value: str) -> tuple[str, Path]:
     return name, Path(raw_path)
 
 
+def _optional_metadata(value: str | None, label: str) -> str | None:
+    if value is None:
+        return None
+    value = value.strip()
+    if not value:
+        raise ValueError(f"{label} must be a non-empty string")
+    return value
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path, help="directory for the evidence bundle")
@@ -36,8 +45,21 @@ def main() -> int:
                         help="evidence file to copy; may be repeated")
     parser.add_argument("--firmware-commit", default=None)
     parser.add_argument("--device", default=None)
+    parser.add_argument("--receiver", default=None,
+                        help="GNSS receiver model/identifier used for the test")
+    parser.add_argument("--test-id", default=None,
+                        help="unique operator-assigned field test identifier")
     parser.add_argument("--notes", default=None)
     args = parser.parse_args()
+
+    try:
+        firmware_commit = _optional_metadata(args.firmware_commit, "firmware-commit")
+        device = _optional_metadata(args.device, "device")
+        receiver = _optional_metadata(args.receiver, "receiver")
+        test_id = _optional_metadata(args.test_id, "test-id")
+        notes = _optional_metadata(args.notes, "notes")
+    except ValueError as exc:
+        parser.error(str(exc))
 
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -64,9 +86,11 @@ def main() -> int:
     manifest = {
         "schema": 1,
         "created_utc": datetime.now(timezone.utc).isoformat(),
-        "firmware_commit": args.firmware_commit,
-        "device": args.device,
-        "notes": args.notes,
+        "firmware_commit": firmware_commit,
+        "device": device,
+        "receiver": receiver,
+        "test_id": test_id,
+        "notes": notes,
         "files": entries,
     }
     manifest_path = output / "EVIDENCE_MANIFEST.json"
