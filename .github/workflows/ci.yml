@@ -77,6 +77,10 @@ jobs:
         working-directory: tools
         run: python -m unittest test_qualify_recovery_bundle.py
 
+      - name: Run recovery evidence fingerprint verifier self-tests
+        working-directory: tools
+        run: python -m unittest test_verify_recovery_report.py
+
       - name: Compile embedded regression tests
         run: pio test -e esp32-s3-tests --without-uploading --without-testing --junit-output-path test-results.xml
 
