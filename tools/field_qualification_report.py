@@ -23,7 +23,28 @@ def _fmt_seconds(value) -> str:
     return "n/a"
 
 
-def render(qualification: dict, verification: dict | None = None) -> str:
+def _metadata_items(metadata: dict | None) -> list[tuple[str, str]]:
+    if metadata is None:
+        return []
+    if not isinstance(metadata, dict):
+        raise ValueError("metadata must contain an object")
+    allowed = {
+        "device": "Device",
+        "firmware_commit": "Firmware commit",
+        "receiver": "GNSS receiver",
+        "test_id": "Test ID",
+    }
+    items = []
+    for key, label in allowed.items():
+        value = metadata.get(key)
+        if value is not None:
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"metadata[{key}] must be a non-empty string")
+            items.append((label, value.strip()))
+    return items
+
+
+def render(qualification: dict, verification: dict | None = None, metadata: dict | None = None) -> str:
     if qualification.get("schema_version") != 1:
         raise ValueError("qualification report schema_version must be 1")
     if qualification.get("qualification_ready") is not True:
@@ -38,6 +59,14 @@ def render(qualification: dict, verification: dict | None = None) -> str:
         "",
         f"**Result:** {'PASS' if passed else 'FAIL'}",
         f"**Qualification ready:** yes",
+    ]
+
+    metadata_items = _metadata_items(metadata)
+    if metadata_items:
+        lines.extend(["", "## Test identity", ""])
+        lines.extend(f"- **{label}:** `{value}`" for label, value in metadata_items)
+
+    lines.extend([
         "",
         "## Recovery",
         "",
@@ -49,7 +78,7 @@ def render(qualification: dict, verification: dict | None = None) -> str:
         "",
         "## Evidence integrity",
         "",
-    ]
+    ])
     for name in ("CAPTURE.json", "live.csv", "nmea_timeline.log"):
         digest = evidence.get(name, "n/a")
         lines.append(f"- `{name}`: `{digest}`")
@@ -80,14 +109,28 @@ def main(argv=None):
     parser.add_argument("qualification_report")
     parser.add_argument("output")
     parser.add_argument("--verification-report")
+    parser.add_argument("--device")
+    parser.add_argument("--firmware-commit")
+    parser.add_argument("--receiver")
+    parser.add_argument("--test-id")
     args = parser.parse_args(argv)
 
     qualification = _load_object(Path(args.qualification_report), "qualification report")
     verification = None
     if args.verification_report:
         verification = _load_object(Path(args.verification_report), "verification report")
+    metadata = {
+        key: value
+        for key, value in {
+            "device": args.device,
+            "firmware_commit": args.firmware_commit,
+            "receiver": args.receiver,
+            "test_id": args.test_id,
+        }.items()
+        if value is not None
+    }
     try:
-        text = render(qualification, verification)
+        text = render(qualification, verification, metadata)
     except ValueError as exc:
         parser.error(str(exc))
     Path(args.output).write_text(text, encoding="utf-8")

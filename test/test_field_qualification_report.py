@@ -34,6 +34,28 @@ def test_render_can_include_verification():
     assert "Evidence hashes match: yes" in text
 
 
+def test_render_includes_test_identity():
+    text = report.render(sample(), metadata={
+        "device": "bridge-01",
+        "firmware_commit": "abc123",
+        "receiver": "u-blox M10",
+        "test_id": "2026-09-06-recovery-01",
+    })
+    assert "**Device:** `bridge-01`" in text
+    assert "**Firmware commit:** `abc123`" in text
+    assert "**GNSS receiver:** `u-blox M10`" in text
+    assert "**Test ID:** `2026-09-06-recovery-01`" in text
+
+
+def test_rejects_invalid_metadata_value():
+    try:
+        report.render(sample(), metadata={"device": "   "})
+    except ValueError as exc:
+        assert "metadata[device]" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
+
+
 def test_rejects_non_ready_report():
     value = sample()
     value["qualification_ready"] = False
