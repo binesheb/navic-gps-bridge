@@ -1,0 +1,35 @@
+name: Hardware Qualification Tools CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validation-tools:
+    name: Hardware qualification tool tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.9'
+
+      - name: Verify Python and validator import
+        working-directory: tools
+        run: |
+          python --version
+          python -c "import validate_hardware_qualification_run; print('validator import: PASS')"
+
+      - name: Run hardware qualification preflight self-tests
+        working-directory: tools
+        run: python -m unittest -v test_validate_hardware_qualification_run.py
