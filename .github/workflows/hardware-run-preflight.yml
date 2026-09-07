@@ -24,6 +24,12 @@ jobs:
         with:
           python-version: '3.11.9'
 
+      - name: Verify Python and validator import
+        working-directory: tools
+        run: |
+          python --version
+          python -c "import validate_hardware_qualification_run; print('validator import: PASS')"
+
       - name: Run hardware qualification preflight self-tests
         working-directory: tools
-        run: python -m unittest test_validate_hardware_qualification_run.py
+        run: python -m unittest -v test_validate_hardware_qualification_run.py
