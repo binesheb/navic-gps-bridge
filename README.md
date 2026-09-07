@@ -158,6 +158,20 @@ Optional recovery and outage limits can be supplied with `--max-recovery-seconds
 
 The generated report preserves the qualification verdict, test identity metadata, health sequence, recovery/outage timing, evidence SHA-256 fingerprints, and post-test verification result. If CLI identity metadata is also supplied, it must agree with the manifest; mismatches are rejected to prevent traceability drift.
 
+### Hardware qualification run scaffold
+
+For the first physical receiver qualification, create a run directory with the exact device/receiver/firmware identity and the full H01-H14 matrix before starting the test. The scaffold intentionally records `NOT_STARTED` rather than inventing results and creates the standard evidence layout:
+
+```bash
+python tools/create_hardware_qualification_run.py evidence/bridge-01-receiver-a \
+  --device bridge-01 \
+  --receiver "GNSS receiver model" \
+  --firmware-commit YOUR_FIRMWARE_COMMIT \
+  --test-id receiver-a-2026-09-07
+```
+
+The generated `RUN_METADATA.json` is the run identity record and `FIELD_QUALIFICATION_RUN.md` is the operator checklist for H01-H14. Complete the physical test using [the hardware qualification matrix](docs/HARDWARE_QUALIFICATION_MATRIX.md), then replace the scaffold placeholders with the real captured evidence before running the existing bundle preflight, manifest verification, and qualification runner. The scaffold itself never changes a result to `PASS`.
+
 For regression testing:
 
 ```bash
