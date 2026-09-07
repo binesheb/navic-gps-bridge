@@ -26,7 +26,7 @@ REQUIRED_FILES = (
     "FIELD_QUALIFICATION.md",
     "FIELD_QUALIFICATION_RESULT.json",
 )
-ROW_RE = re.compile(r"^\\|\\s*(H\\d{2})\\s*\\|.*?\\|\\s*(PASS|FAIL|NOT_RUN)\\s*\\|", re.MULTILINE)
+ROW_RE = re.compile(r"^\|\s*(H\d{2})\s*\|.*?\|\s*(PASS|FAIL|NOT_RUN)\s*\|", re.MULTILINE)
 
 
 def parse_args() -> argparse.Namespace:
@@ -45,6 +45,11 @@ def load_json(path: Path) -> dict:
     return value
 
 
+def parse_matrix_results(text: str) -> dict[str, str]:
+    """Return the latest recognized result for each H01-H14 matrix row."""
+    return {case_id: result for case_id, result in ROW_RE.findall(text)}
+
+
 def main() -> int:
     args = parse_args()
     run_dir = args.run.resolve()
@@ -59,8 +64,7 @@ def main() -> int:
     if metadata.get("status") == "COMPLETE":
         raise SystemExit("run is already COMPLETE")
 
-    text = checklist_path.read_text(encoding="utf-8")
-    rows = {case_id: result for case_id, result in ROW_RE.findall(text)}
+    rows = parse_matrix_results(checklist_path.read_text(encoding="utf-8"))
     missing_rows = [case_id for case_id in MATRIX_IDS if case_id not in rows]
     if missing_rows:
         raise SystemExit("missing matrix rows: " + ", ".join(missing_rows))
