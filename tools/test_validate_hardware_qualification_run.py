@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from validate_hardware_qualification_run import MATRIX_IDS, REQUIRED_FILES, validate_run
+from tools.validate_hardware_qualification_run import MATRIX_IDS, REQUIRED_FILES, validate_run
 
 
 class HardwareRunPreflightTests(unittest.TestCase):
