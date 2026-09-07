@@ -172,6 +172,14 @@ python tools/create_hardware_qualification_run.py evidence/bridge-01-receiver-a 
 
 The generated `RUN_METADATA.json` is the run identity record and `FIELD_QUALIFICATION_RUN.md` is the operator checklist for H01-H14. Complete the physical test using [the hardware qualification matrix](docs/HARDWARE_QUALIFICATION_MATRIX.md), then replace the scaffold placeholders with the real captured evidence before running the existing bundle preflight, manifest verification, and qualification runner. The scaffold itself never changes a result to `PASS`.
 
+To close the final operator gap after the physical test, run:
+
+```bash
+python tools/finalize_hardware_qualification_run.py evidence/bridge-01-receiver-a
+```
+
+The finalizer is deliberately fail-closed. It requires every H01-H14 checklist row to be explicitly `PASS`, every standard evidence artifact to exist and be non-empty, and `FIELD_QUALIFICATION_RESULT.json` to contain `passed=true`. Only then does it change `RUN_METADATA.json` to `COMPLETE` and record `completed_at`. It cannot turn `NOT_RUN` or `FAIL` into a pass.
+
 For regression testing:
 
 ```bash
@@ -188,6 +196,6 @@ GitHub Actions runs the ESP32-S3 regression build and the production firmware bu
 
 ## Current status
 
-The GNSS recovery subsystem is implemented, integrated into the production firmware, and covered by the embedded regression configuration. The geofence subsystem is integrated into configuration, live diagnostics, dashboard status, transition timing, and regression coverage. The CI path compiles embedded tests without requiring physical hardware and publishes traceable firmware artifacts with integrity metadata. Field-test evidence can now be packaged with a deterministic SHA-256 manifest carrying device, receiver, and test identity metadata, independently verified after archival, preflighted for required field-test completeness, and processed through one fail-closed qualification runner. The combined acceptance runner provides one operator-facing verdict across HTTP diagnostics and TCP NMEA streaming. Recovery qualification reports can be independently verified and rendered as auditable operator-facing field reports without duplicating or overriding manifest identity.
+The GNSS recovery subsystem is implemented, integrated into the production firmware, and covered by the embedded regression configuration. The geofence subsystem is integrated into configuration, live diagnostics, dashboard status, transition timing, and regression coverage. The CI path compiles embedded tests without requiring physical hardware and publishes traceable firmware artifacts with integrity metadata. Field-test evidence can now be packaged with a deterministic SHA-256 manifest carrying device, receiver, and test identity metadata, independently verified after archival, preflighted for required field-test completeness, and processed through one fail-closed qualification runner. The combined acceptance runner provides one operator-facing verdict across HTTP diagnostics and TCP NMEA streaming. Recovery qualification reports can be independently verified and rendered as auditable operator-facing field reports without duplicating or overriding manifest identity. Physical qualification runs can be scaffolded with a complete H01-H14 checklist and finalized only after all cases and evidence are explicitly complete.
 
 The next milestone is physical receiver validation under startup failure, cable disconnect, prolonged silence, UART recovery, recovery cooldown, and controlled geofence boundary-crossing conditions. Keep the generated evidence bundle together for each hardware/receiver combination.
