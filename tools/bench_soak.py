@@ -24,7 +24,7 @@ def run(
     interval: float,
     timeout: float,
     max_age_ms: int,
-    min_nmea_sentences: int,
+    min_nmea_sentences: int = 1,
 ) -> dict:
     observations = []
     started_at_ms = int(time.time() * 1000)
