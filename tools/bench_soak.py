@@ -12,13 +12,13 @@ import argparse
 import json
 import time
 from pathlib import Path
-from urllib.request import urlopen
 
 from bench_smoke import read_live, read_nmea
 
 
 def run(base_url: str, tcp_host: str, tcp_port: int, samples: int, interval: float, timeout: float, max_age_ms: int) -> dict:
     observations = []
+    started_at_ms = int(time.time() * 1000)
     for index in range(samples):
         started = time.monotonic()
         errors = []
@@ -32,13 +32,16 @@ def run(base_url: str, tcp_host: str, tcp_port: int, samples: int, interval: flo
             total, valid = read_nmea(tcp_host, tcp_port, timeout)
         except OSError as exc:
             errors.append(f"TCP NMEA: {exc}")
+        checksum_valid = total > 0 and total == valid
         observations.append({
             "sample": index + 1,
-            "passed": not errors and total > 0 and total == valid,
+            "observed_at_unix_ms": int(time.time() * 1000),
+            "passed": not errors and checksum_valid,
             "http_live": live,
             "nmea_sentences": total,
             "nmea_valid_sentences": valid,
-            "nmea_checksum_valid": total > 0 and total == valid,
+            "nmea_checksum_valid": checksum_valid,
+            "nmea_valid_percent": round((valid / total) * 100, 2) if total else 0.0,
             "errors": errors,
             "duration_s": round(time.monotonic() - started, 3),
         })
@@ -47,7 +50,9 @@ def run(base_url: str, tcp_host: str, tcp_port: int, samples: int, interval: flo
 
     passed_samples = sum(item["passed"] for item in observations)
     return {
-        "schema": 1,
+        "schema": 2,
+        "started_at_unix_ms": started_at_ms,
+        "ended_at_unix_ms": int(time.time() * 1000),
         "passed": passed_samples == samples,
         "samples": samples,
         "passed_samples": passed_samples,
