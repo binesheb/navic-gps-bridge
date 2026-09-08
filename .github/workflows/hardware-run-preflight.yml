@@ -34,3 +34,6 @@ jobs:
 
       - name: Run serial capture regression tests
         run: python -m unittest -v test.test_serial_nmea_capture
+
+      - name: Run first-bench smoke helper tests
+        run: python -m unittest -v test.test_bench_smoke
