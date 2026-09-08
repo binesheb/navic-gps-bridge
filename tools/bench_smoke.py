@@ -2,9 +2,9 @@
 """Run a dependency-free first-bench smoke check against a live bridge.
 
 The check verifies that the HTTP diagnostics endpoint responds with a usable
-live snapshot and that the TCP NMEA service emits at least one checksum-valid
-sentence during the same observation window. It is a bring-up aid, not a
-physical qualification or NavIC reception claim.
+and fresh live snapshot and that the TCP NMEA service emits at least one
+checksum-valid sentence during the same observation window. It is a bring-up
+aid, not a physical qualification or NavIC reception claim.
 """
 
 from __future__ import annotations
@@ -33,17 +33,24 @@ def checksum_ok(sentence: str) -> bool:
         return False
 
 
-def read_live(base_url: str, timeout: float) -> dict:
+def read_live(base_url: str, timeout: float, max_age_ms: int) -> dict:
     with urlopen(base_url.rstrip("/") + "/api/live", timeout=timeout) as response:
         if response.status != 200:
             raise RuntimeError(f"/api/live returned HTTP {response.status}")
         payload = json.loads(response.read().decode("utf-8"))
     if not isinstance(payload, dict):
         raise RuntimeError("/api/live did not return a JSON object")
-    required = ("fix", "satellites", "latitude", "longitude")
+    required = ("fix", "satellites", "latitude", "longitude", "data_available", "data_fresh", "data_age_ms")
     missing = [key for key in required if key not in payload]
     if missing:
         raise RuntimeError("/api/live missing fields: " + ", ".join(missing))
+    if not payload["data_available"]:
+        raise RuntimeError("/api/live reports no GNSS data")
+    if not payload["data_fresh"]:
+        raise RuntimeError("/api/live reports stale GNSS data")
+    age_ms = payload["data_age_ms"]
+    if not isinstance(age_ms, (int, float)) or age_ms < 0 or age_ms > max_age_ms:
+        raise RuntimeError(f"/api/live data age {age_ms} ms exceeds {max_age_ms} ms")
     return payload
 
 
@@ -71,13 +78,13 @@ def read_nmea(host: str, port: int, timeout: float) -> tuple[int, int]:
     return total, valid
 
 
-def run(base_url: str, tcp_host: str, tcp_port: int, timeout: float) -> dict:
+def run(base_url: str, tcp_host: str, tcp_port: int, timeout: float, max_age_ms: int) -> dict:
     started = time.monotonic()
     errors: list[str] = []
     live: dict | None = None
     total = valid = 0
     try:
-        live = read_live(base_url, min(timeout, 5.0))
+        live = read_live(base_url, min(timeout, 5.0), max_age_ms)
     except (OSError, ValueError, RuntimeError, URLError) as exc:
         errors.append(f"HTTP diagnostics: {exc}")
     try:
@@ -86,12 +93,13 @@ def run(base_url: str, tcp_host: str, tcp_port: int, timeout: float) -> dict:
         errors.append(f"TCP NMEA: {exc}")
     duration = time.monotonic() - started
     return {
-        "schema": 1,
+        "schema": 2,
         "passed": not errors and total > 0 and total == valid,
         "duration_s": round(duration, 3),
         "http_live": live,
         "nmea_sentences": total,
         "nmea_valid_sentences": valid,
+        "nmea_checksum_valid": total > 0 and total == valid,
         "errors": errors,
     }
 
@@ -102,12 +110,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--tcp-host", help="TCP NMEA host; defaults to URL hostname")
     parser.add_argument("--tcp-port", type=int, default=10110)
     parser.add_argument("--timeout", type=float, default=10.0)
+    parser.add_argument("--max-data-age-ms", type=int, default=3000)
     parser.add_argument("--json-output", type=Path)
     args = parser.parse_args(argv)
-    if args.timeout <= 0 or not 1024 <= args.tcp_port <= 65535:
-        parser.error("timeout must be > 0 and tcp-port must be 1024..65535")
+    if args.timeout <= 0 or args.max_data_age_ms <= 0 or not 1024 <= args.tcp_port <= 65535:
+        parser.error("timeout and max-data-age-ms must be > 0 and tcp-port must be 1024..65535")
     host = args.tcp_host or base_host(args.base_url)
-    result = run(args.base_url, host, args.tcp_port, args.timeout)
+    result = run(args.base_url, host, args.tcp_port, args.timeout, args.max_data_age_ms)
     rendered = json.dumps(result, indent=2, sort_keys=True)
     print(rendered)
     if args.json_output:
