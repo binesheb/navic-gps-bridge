@@ -46,7 +46,8 @@ class HardwareRunPreflightTests(unittest.TestCase):
         text = path.read_text(encoding="utf-8")
         text = text.replace("| H14 | Scenario | NOT_RUN | |", "")
         path.write_text(text, encoding="utf-8")
-        self.assertIn("missing checklist row: H14", validate_run(root))
+        errors = validate_run(root)
+        self.assertTrue(any("missing checklist row: H14" in error for error in errors))
 
     def test_rejects_finalized_run(self):
         root = self.make_run()
@@ -54,7 +55,8 @@ class HardwareRunPreflightTests(unittest.TestCase):
         metadata = json.loads(path.read_text(encoding="utf-8"))
         metadata["status"] = "COMPLETE"
         path.write_text(json.dumps(metadata), encoding="utf-8")
-        self.assertIn("run is already COMPLETE", validate_run(root))
+        errors = validate_run(root)
+        self.assertTrue(any("run is already COMPLETE" in error for error in errors))
 
 
 if __name__ == "__main__":
