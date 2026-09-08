@@ -33,11 +33,7 @@ def checksum_ok(sentence: str) -> bool:
         return False
 
 
-def read_live(base_url: str, timeout: float, max_age_ms: int) -> dict:
-    with urlopen(base_url.rstrip("/") + "/api/live", timeout=timeout) as response:
-        if response.status != 200:
-            raise RuntimeError(f"/api/live returned HTTP {response.status}")
-        payload = json.loads(response.read().decode("utf-8"))
+def validate_live(payload: dict, max_age_ms: int) -> None:
     if not isinstance(payload, dict):
         raise RuntimeError("/api/live did not return a JSON object")
     required = ("fix", "satellites", "latitude", "longitude", "data_available", "data_fresh", "data_age_ms")
@@ -51,6 +47,14 @@ def read_live(base_url: str, timeout: float, max_age_ms: int) -> dict:
     age_ms = payload["data_age_ms"]
     if not isinstance(age_ms, (int, float)) or age_ms < 0 or age_ms > max_age_ms:
         raise RuntimeError(f"/api/live data age {age_ms} ms exceeds {max_age_ms} ms")
+
+
+def read_live(base_url: str, timeout: float, max_age_ms: int) -> dict:
+    with urlopen(base_url.rstrip("/") + "/api/live", timeout=timeout) as response:
+        if response.status != 200:
+            raise RuntimeError(f"/api/live returned HTTP {response.status}")
+        payload = json.loads(response.read().decode("utf-8"))
+    validate_live(payload, max_age_ms)
     return payload
 
 
