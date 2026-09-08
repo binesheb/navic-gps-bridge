@@ -172,6 +172,25 @@ python tools/create_hardware_qualification_run.py evidence/bridge-01-receiver-a 
 
 The generated `RUN_METADATA.json` is the run identity record and `FIELD_QUALIFICATION_RUN.md` is the operator checklist for H01-H14. Complete the physical test using [the hardware qualification matrix](docs/HARDWARE_QUALIFICATION_MATRIX.md), then replace the scaffold placeholders with the real captured evidence before running the existing bundle preflight, manifest verification, and qualification runner. The scaffold itself never changes a result to `PASS`.
 
+### Direct receiver serial capture
+
+The field kit includes a direct serial capture tool for collecting the GNSS receiver's raw NMEA stream independently of the bridge. Install the field-only dependency set first:
+
+```bash
+python -m pip install -r requirements-field.txt
+```
+
+Capture a receiver directly (Windows or Linux) and optionally emit a machine-readable capture verdict:
+
+```bash
+python tools/serial_nmea_capture.py COM5 evidence/bridge-01-receiver-a/serial.log \
+  --baud 9600 \
+  --seconds 60 \
+  --json-output evidence/bridge-01-receiver-a/serial-verdict.json
+```
+
+The tool preserves the raw receiver stream, counts checksum-valid/invalid NMEA sentences, records observed formatter types, and fails closed when no sentences arrive or a received NMEA sentence has an invalid checksum. This is evidence collection only: it does not claim NavIC reception or substitute for the H01-H14 physical procedures.
+
 To close the final operator gap after the physical test, run:
 
 ```bash
