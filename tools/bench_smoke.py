@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import socket
 import time
 from pathlib import Path
@@ -40,12 +41,23 @@ def validate_live(payload: dict, max_age_ms: int) -> None:
     missing = [key for key in required if key not in payload]
     if missing:
         raise RuntimeError("/api/live missing fields: " + ", ".join(missing))
-    if not payload["data_available"]:
+    if not isinstance(payload["fix"], bool):
+        raise RuntimeError("/api/live fix must be boolean")
+    if not isinstance(payload["data_available"], bool) or not payload["data_available"]:
         raise RuntimeError("/api/live reports no GNSS data")
-    if not payload["data_fresh"]:
+    if not isinstance(payload["data_fresh"], bool) or not payload["data_fresh"]:
         raise RuntimeError("/api/live reports stale GNSS data")
+    satellites = payload["satellites"]
+    if isinstance(satellites, bool) or not isinstance(satellites, (int, float)) or satellites < 0 or not float(satellites).is_integer():
+        raise RuntimeError(f"/api/live satellites value {satellites!r} is invalid")
+    latitude = payload["latitude"]
+    longitude = payload["longitude"]
+    if not isinstance(latitude, (int, float)) or isinstance(latitude, bool) or not math.isfinite(latitude) or not -90.0 <= latitude <= 90.0:
+        raise RuntimeError(f"/api/live latitude {latitude!r} is invalid")
+    if not isinstance(longitude, (int, float)) or isinstance(longitude, bool) or not math.isfinite(longitude) or not -180.0 <= longitude <= 180.0:
+        raise RuntimeError(f"/api/live longitude {longitude!r} is invalid")
     age_ms = payload["data_age_ms"]
-    if not isinstance(age_ms, (int, float)) or age_ms < 0 or age_ms > max_age_ms:
+    if isinstance(age_ms, bool) or not isinstance(age_ms, (int, float)) or not math.isfinite(age_ms) or age_ms < 0 or age_ms > max_age_ms:
         raise RuntimeError(f"/api/live data age {age_ms} ms exceeds {max_age_ms} ms")
 
 
