@@ -32,4 +32,5 @@ jobs:
 
       - name: Run hardware qualification tool tests
         run: |
-          python -m unittest -v tools.test_validate_hardware_qualification_run test.test_serial_nmea_capture
+          python -m unittest discover -s tools -p 'test_*.py' -v
+          python -m unittest discover -s test -p 'test_*.py' -v
