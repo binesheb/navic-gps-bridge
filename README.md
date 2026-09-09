@@ -91,6 +91,19 @@ For the first bench connection of a physical receiver, use the [hardware bring-u
 
 For downstream TCP validation, use `tools/nmea_stream_check.py`. It can enforce minimum sentence counts, checksum-valid percentage, required formatter types, and actual capture duration, and can save a JSON verdict for field evidence. See [the live NMEA stream validation guide](docs/LIVE_STREAM_VALIDATION.md).
 
+For direct receiver validation, `tools/serial_nmea_capture.py` provides the same quality gates at the UART boundary: minimum sentence count, checksum-valid percentage, required formatter types, and full-duration capture. This lets the operator distinguish receiver/UART problems from bridge/TCP problems before starting H01-H14. Example:
+
+```bash
+python tools/serial_nmea_capture.py COM5 evidence/bridge-01-receiver-a/serial.log \
+  --baud 9600 \
+  --seconds 60 \
+  --min-sentences 30 \
+  --min-valid-percent 100 \
+  --require-type GNRMC \
+  --require-type GNGGA \
+  --json-output evidence/bridge-01-receiver-a/serial-verdict.json
+```
+
 For API stability validation, use `tools/live_acceptance.py` to capture `/api/live` telemetry and run the deterministic analyzer with HTTP success, freshness, recovery-attempt, stale-sample, and duration thresholds.
 
 For a single operator command that validates both surfaces, use `tools/field_acceptance.py`. It runs the HTTP `/api/live` acceptance and TCP NMEA stream checks, preserves both raw verdicts, and writes `FIELD_ACCEPTANCE.json` with a combined pass/fail result. The two checks intentionally use separate evidence windows; this report must not be interpreted as simultaneous capture or as proof of physical recovery.
@@ -191,7 +204,7 @@ python tools/serial_nmea_capture.py COM5 evidence/bridge-01-receiver-a/serial.lo
   --json-output evidence/bridge-01-receiver-a/serial-verdict.json
 ```
 
-The tool preserves the raw receiver stream, counts checksum-valid/invalid NMEA sentences, records observed formatter types, and fails closed when no sentences arrive or a received NMEA sentence has an invalid checksum. This is evidence collection only: it does not claim NavIC reception or substitute for the H01-H14 physical procedures.
+The tool preserves the raw receiver stream, counts checksum-valid/invalid NMEA sentences, records observed formatter types, and fails closed when no sentences arrive or a received NMEA sentence has an invalid checksum. With the new quality gates, it can also fail before qualification when the receiver emits too few sentences, lacks required formatter types, or does not sustain the requested capture duration. This is evidence collection only: it does not claim NavIC reception or substitute for the H01-H14 physical procedures.
 
 To close the final operator gap after the physical test, run:
 
@@ -217,6 +230,6 @@ GitHub Actions runs the ESP32-S3 regression build and the production firmware bu
 
 ## Current status
 
-The GNSS recovery subsystem is implemented, integrated into the production firmware, and covered by the embedded regression configuration. The geofence subsystem is integrated into configuration, live diagnostics, dashboard status, transition timing, and regression coverage. The CI path compiles embedded tests without requiring physical hardware and publishes traceable firmware artifacts with integrity metadata. Field-test evidence can now be packaged with a deterministic SHA-256 manifest carrying device, receiver, and test identity metadata, independently verified after archival, preflighted for required field-test completeness, and processed through one fail-closed qualification runner. The combined acceptance runner provides one operator-facing verdict across HTTP diagnostics and TCP NMEA streaming. Recovery qualification reports can be independently verified and rendered as auditable operator-facing field reports without duplicating or overriding manifest identity. Physical qualification runs can be scaffolded with a complete H01-H14 checklist and finalized only after all cases and evidence are explicitly complete.
+The GNSS recovery subsystem is implemented, integrated into the production firmware, and covered by the embedded regression configuration. The geofence subsystem is integrated into configuration, live diagnostics, dashboard status, transition timing, and regression coverage. The CI path compiles embedded tests without requiring physical hardware and publishes traceable firmware artifacts with integrity metadata. Field-test evidence can now be packaged with a deterministic SHA-256 manifest carrying device, receiver, and test identity metadata, independently verified after archival, preflighted for required field-test completeness, and processed through one fail-closed qualification runner. The combined acceptance runner provides one operator-facing verdict across HTTP diagnostics and TCP NMEA streaming. Recovery qualification reports can be independently verified and rendered as auditable operator-facing field reports without duplicating or overriding manifest identity. Physical qualification runs can be scaffolded with a complete H01-H14 checklist and finalized only after all cases and evidence are explicitly complete. Direct receiver serial capture now supports the same configurable quality gates as the TCP stream checker, making the receiver/UART boundary independently measurable.
 
 The next milestone is physical receiver validation under startup failure, cable disconnect, prolonged silence, UART recovery, recovery cooldown, and controlled geofence boundary-crossing conditions. The [hardware bring-up runbook](docs/HARDWARE_BRINGUP.md) provides the first-bench sequence and troubleshooting order. Keep the generated evidence bundle together for each hardware/receiver combination.
