@@ -7,7 +7,9 @@ import csv
 import json
 from pathlib import Path
 
-from validate_field_capture import LIVE_FIELDS, validate_capture
+from validate_field_capture import validate_capture
+
+LIVE_FIELDS = ("elapsed_s", "timestamp", "fix", "latitude", "longitude", "altitude_m", "speed_kmh", "satellites", "health_state")
 
 
 def _count_live(path: Path) -> int:
