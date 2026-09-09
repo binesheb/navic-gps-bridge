@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 from validate_capture_integrity import validate_integrity
+from validate_field_capture import validate_capture
 
 
 def _read_live_times(path: Path) -> list[float]:
@@ -50,8 +51,11 @@ def _validate_sequence(name: str, values: list[float], duration: float) -> None:
 
 
 def validate_timing(run: Path) -> dict:
-    report = validate_integrity(run)
-    duration = float(report["duration_s"])
+    # validate_capture owns the CAPTURE.json schema and returns the declared
+    # duration; validate_integrity then cross-checks artifact counts against it.
+    capture = validate_capture(run)
+    validate_integrity(run)
+    duration = float(capture["duration_s"])
     live = _read_live_times(run / "live.csv")
     timeline = _read_timeline_times(run / "nmea_timeline.log")
     _validate_sequence("live.csv", live, duration)
