@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import validate_capture_integrity
 import validate_capture_timing
 
 
@@ -23,7 +24,7 @@ class ValidateCaptureTimingTests(unittest.TestCase):
         }
         (root / "CAPTURE.json").write_text(json.dumps(report), encoding="utf-8")
         with (root / "live.csv").open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=validate_capture_timing.validate_integrity.__globals__["LIVE_FIELDS"])
+            writer = csv.DictWriter(handle, fieldnames=validate_capture_integrity.LIVE_FIELDS)
             writer.writeheader()
             for i, value in enumerate(live_times):
                 writer.writerow({key: str(i) if key != "elapsed_s" else str(value) for key in writer.fieldnames})
