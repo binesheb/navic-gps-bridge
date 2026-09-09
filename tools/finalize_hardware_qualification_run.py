@@ -3,9 +3,10 @@
 
 The operator checklist is the source of truth for H01-H14. This tool only
 changes a run from IN_PROGRESS to COMPLETE when every matrix row is explicitly
-marked PASS, the field-acceptance identity matches RUN_METADATA.json, and all
-required evidence files are present and non-empty. It also records the
-completion timestamp in RUN_METADATA.json.
+marked PASS, the field-acceptance identity matches RUN_METADATA.json, all
+required evidence files are present and non-empty, and the evidence manifest
+verifies every recorded hash. It also records the completion timestamp in
+RUN_METADATA.json.
 """
 
 from __future__ import annotations
@@ -15,6 +16,11 @@ import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
+
+try:
+    from tools.verify_evidence_manifest import verify as verify_evidence_manifest
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from verify_evidence_manifest import verify as verify_evidence_manifest
 
 MATRIX_IDS = tuple(f"H{i:02d}" for i in range(1, 15))
 REQUIRED_FILES = (
@@ -75,6 +81,12 @@ def validate_field_acceptance_identity(metadata: dict, acceptance: dict) -> None
         raise SystemExit("FIELD_ACCEPTANCE identity does not match RUN_METADATA.json: " + details)
 
 
+def validate_evidence_manifest(run_dir: Path) -> None:
+    result = verify_evidence_manifest(run_dir / "EVIDENCE_MANIFEST.json")
+    if result.get("passed") is not True:
+        raise SystemExit("EVIDENCE_MANIFEST.json verification failed: " + str(result.get("error", "unknown error")))
+
+
 def main() -> int:
     args = parse_args()
     run_dir = args.run.resolve()
@@ -104,6 +116,7 @@ def main() -> int:
     if empty:
         raise SystemExit("required evidence files are empty: " + ", ".join(empty))
 
+    validate_evidence_manifest(run_dir)
     validate_field_acceptance_identity(metadata, load_json(run_dir / "FIELD_ACCEPTANCE.json"))
 
     result_path = run_dir / "FIELD_QUALIFICATION_RESULT.json"
@@ -117,7 +130,7 @@ def main() -> int:
 
     print(f"hardware qualification run finalized: {run_dir}")
     print("matrix: H01-H14 PASS")
-    print("evidence: present and non-empty")
+    print("evidence: present, non-empty, and manifest verified")
     print("field acceptance identity: matches RUN_METADATA.json")
     print("qualification result: passed=true")
     return 0
