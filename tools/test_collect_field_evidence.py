@@ -18,6 +18,14 @@ class FieldEvidenceTests(unittest.TestCase):
             capture_output=True,
         )
 
+    def identity_args(self):
+        return [
+            "--firmware-commit", "abc123",
+            "--device", "bridge-01",
+            "--receiver", "u-blox M10",
+            "--test-id", "recovery-2026-09-06-01",
+        ]
+
     def test_copies_files_and_writes_manifest(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -28,10 +36,7 @@ class FieldEvidenceTests(unittest.TestCase):
             result = self.run_tool(
                 output,
                 "--file", f"nmea-verdict.json={source}",
-                "--firmware-commit", "abc123",
-                "--device", "bridge-01",
-                "--receiver", "u-blox M10",
-                "--test-id", "recovery-2026-09-06-01",
+                *self.identity_args(),
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual((output / "nmea-verdict.json").read_text(encoding="utf-8"), source.read_text(encoding="utf-8"))
@@ -51,16 +56,20 @@ class FieldEvidenceTests(unittest.TestCase):
             result = self.run_tool(
                 Path(temp) / "evidence",
                 "--file", f"serial.log={source}",
+                "--firmware-commit", "abc123",
                 "--device", "   ",
+                "--receiver", "u-blox M10",
+                "--test-id", "recovery-2026-09-06-01",
             )
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("device must be a non-empty string", result.stderr)
+            self.assertIn("identity metadata must be non-empty", result.stderr)
 
     def test_rejects_missing_source(self):
         with tempfile.TemporaryDirectory() as temp:
             result = self.run_tool(
                 Path(temp) / "evidence",
                 "--file", f"missing.log={Path(temp) / 'missing.log'}",
+                *self.identity_args(),
             )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("does not exist", result.stderr)
@@ -72,6 +81,7 @@ class FieldEvidenceTests(unittest.TestCase):
             result = self.run_tool(
                 Path(temp) / "evidence",
                 "--file", f"../serial.log={source}",
+                *self.identity_args(),
             )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("simple filename", result.stderr)

@@ -1,22 +1,17 @@
 #!/usr/bin/env python3
-"""Collect reproducible GNSS field-test evidence with a SHA-256 manifest."""
+"""Collect reproducible GNSS field-test evidence with the canonical manifest."""
 
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import shutil
-from datetime import datetime, timezone
 from pathlib import Path
 
-
-def sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+try:
+    from tools.generate_evidence_manifest import build_manifest
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from generate_evidence_manifest import build_manifest
 
 
 def parse_file_spec(value: str) -> tuple[str, Path]:
@@ -28,71 +23,47 @@ def parse_file_spec(value: str) -> tuple[str, Path]:
     return name, Path(raw_path)
 
 
-def _optional_metadata(value: str | None, label: str) -> str | None:
-    if value is None:
-        return None
-    value = value.strip()
-    if not value:
-        raise ValueError(f"{label} must be a non-empty string")
-    return value
-
-
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path, help="directory for the evidence bundle")
     parser.add_argument("--file", dest="files", action="append", type=parse_file_spec,
                         metavar="NAME=PATH", required=True,
                         help="evidence file to copy; may be repeated")
-    parser.add_argument("--firmware-commit", default=None)
-    parser.add_argument("--device", default=None)
-    parser.add_argument("--receiver", default=None,
+    parser.add_argument("--firmware-commit", required=True)
+    parser.add_argument("--device", required=True)
+    parser.add_argument("--receiver", required=True,
                         help="GNSS receiver model/identifier used for the test")
-    parser.add_argument("--test-id", default=None,
+    parser.add_argument("--test-id", required=True,
                         help="unique operator-assigned field test identifier")
-    parser.add_argument("--notes", default=None)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
-    try:
-        firmware_commit = _optional_metadata(args.firmware_commit, "firmware-commit")
-        device = _optional_metadata(args.device, "device")
-        receiver = _optional_metadata(args.receiver, "receiver")
-        test_id = _optional_metadata(args.test_id, "test-id")
-        notes = _optional_metadata(args.notes, "notes")
-    except ValueError as exc:
-        parser.error(str(exc))
+    identity = {
+        "firmware_commit": args.firmware_commit.strip(),
+        "device": args.device.strip(),
+        "receiver": args.receiver.strip(),
+        "test_id": args.test_id.strip(),
+    }
+    if any(not value for value in identity.values()):
+        parser.error("identity metadata must be non-empty")
 
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
 
-    entries = []
-    seen_names = set()
+    names = []
     for name, source_arg in args.files:
-        source = source_arg.resolve()
-        if name in seen_names:
+        if name in names:
             parser.error(f"duplicate evidence name: {name}")
-        seen_names.add(name)
+        source = source_arg.resolve()
         if not source.is_file():
             parser.error(f"evidence file does not exist: {source}")
-        destination = output / name
-        if destination.resolve().parent != output:
-            parser.error(f"invalid destination: {name}")
-        shutil.copy2(source, destination)
-        entries.append({
-            "name": name,
-            "bytes": destination.stat().st_size,
-            "sha256": sha256(destination),
-        })
+        shutil.copy2(source, output / name)
+        names.append(name)
 
-    manifest = {
-        "schema": 1,
-        "created_utc": datetime.now(timezone.utc).isoformat(),
-        "firmware_commit": firmware_commit,
-        "device": device,
-        "receiver": receiver,
-        "test_id": test_id,
-        "notes": notes,
-        "files": entries,
-    }
+    try:
+        manifest = build_manifest(output, names, **identity)
+    except ValueError as exc:
+        parser.error(str(exc))
+
     manifest_path = output / "EVIDENCE_MANIFEST.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(manifest, indent=2))
