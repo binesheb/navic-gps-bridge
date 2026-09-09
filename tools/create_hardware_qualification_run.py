@@ -39,6 +39,7 @@ EVIDENCE_FILES = (
     "EVIDENCE_MANIFEST.json",
     "recovery-qualification.json",
     "recovery-verification.json",
+    "FIELD_ACCEPTANCE.json",
     "FIELD_QUALIFICATION.md",
     "FIELD_QUALIFICATION_RESULT.json",
 )
