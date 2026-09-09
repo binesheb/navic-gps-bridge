@@ -34,7 +34,7 @@ class BenchSoakTests(unittest.TestCase):
             result = run("http://bridge", "bridge", 10110, 1, 0, 1, 3000, 3)
         self.assertFalse(result["passed"])
         self.assertEqual(result["failed_samples"], 1)
-        self.assertIn("minimum is 3", result["observations"][0]["errors"])
+        self.assertTrue(any("minimum is 3" in error for error in result["observations"][0]["errors"]))
 
     def test_transport_error_is_preserved_in_evidence(self):
         with patch("bench_soak.read_live", side_effect=OSError("offline")), patch("bench_soak.read_nmea", return_value=(0, 0)):
