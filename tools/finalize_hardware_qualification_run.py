@@ -3,8 +3,9 @@
 
 The operator checklist is the source of truth for H01-H14. This tool only
 changes a run from IN_PROGRESS to COMPLETE when every matrix row is explicitly
-marked PASS and all required evidence files are present and non-empty. It also
-records the completion timestamp in RUN_METADATA.json.
+marked PASS, the field-acceptance identity matches RUN_METADATA.json, and all
+required evidence files are present and non-empty. It also records the
+completion timestamp in RUN_METADATA.json.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ REQUIRED_FILES = (
     "EVIDENCE_MANIFEST.json",
     "recovery-qualification.json",
     "recovery-verification.json",
+    "FIELD_ACCEPTANCE.json",
     "FIELD_QUALIFICATION.md",
     "FIELD_QUALIFICATION_RESULT.json",
 )
@@ -48,6 +50,29 @@ def load_json(path: Path) -> dict:
 def parse_matrix_results(text: str) -> dict[str, str]:
     """Return the latest recognized result for each H01-H14 matrix row."""
     return {case_id: result for case_id, result in ROW_RE.findall(text)}
+
+
+def validate_field_acceptance_identity(metadata: dict, acceptance: dict) -> None:
+    identity = acceptance.get("identity")
+    if not isinstance(identity, dict):
+        raise SystemExit("FIELD_ACCEPTANCE.json must contain identity metadata before finalization")
+    expected = {
+        "device_id": metadata.get("device"),
+        "firmware_revision": metadata.get("firmware_commit"),
+        "receiver_model": metadata.get("receiver"),
+        "test_id": metadata.get("test_id"),
+    }
+    missing = [key for key, value in expected.items() if not value]
+    if missing:
+        raise SystemExit("RUN_METADATA.json missing identity fields: " + ", ".join(missing))
+    mismatched = [
+        key for key, value in expected.items() if identity.get(key) != value
+    ]
+    if mismatched:
+        details = ", ".join(
+            f"{key} expected={expected[key]!r} actual={identity.get(key)!r}" for key in mismatched
+        )
+        raise SystemExit("FIELD_ACCEPTANCE identity does not match RUN_METADATA.json: " + details)
 
 
 def main() -> int:
@@ -79,6 +104,8 @@ def main() -> int:
     if empty:
         raise SystemExit("required evidence files are empty: " + ", ".join(empty))
 
+    validate_field_acceptance_identity(metadata, load_json(run_dir / "FIELD_ACCEPTANCE.json"))
+
     result_path = run_dir / "FIELD_QUALIFICATION_RESULT.json"
     result = load_json(result_path)
     if result.get("passed") is not True:
@@ -91,6 +118,7 @@ def main() -> int:
     print(f"hardware qualification run finalized: {run_dir}")
     print("matrix: H01-H14 PASS")
     print("evidence: present and non-empty")
+    print("field acceptance identity: matches RUN_METADATA.json")
     print("qualification result: passed=true")
     return 0
 
