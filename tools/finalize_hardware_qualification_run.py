@@ -5,8 +5,9 @@ The operator checklist is the source of truth for H01-H14. This tool only
 changes a run from IN_PROGRESS to COMPLETE when every matrix row is explicitly
 marked PASS, the field-acceptance identity matches RUN_METADATA.json, all
 required evidence files are present and non-empty, and the evidence manifest
-verifies every required evidence hash. It also records the completion timestamp
-in RUN_METADATA.json.
+verifies every stable physical evidence hash. Derived qualification records are
+validated separately. It also records the completion timestamp in
+RUN_METADATA.json.
 """
 
 from __future__ import annotations
@@ -18,8 +19,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 try:
+    from tools.create_hardware_qualification_run import MANIFEST_EVIDENCE_FILES
     from tools.verify_evidence_manifest import verify as verify_evidence_manifest
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from create_hardware_qualification_run import MANIFEST_EVIDENCE_FILES
     from verify_evidence_manifest import verify as verify_evidence_manifest
 
 MATRIX_IDS = tuple(f"H{i:02d}" for i in range(1, 15))
@@ -34,7 +37,7 @@ REQUIRED_FILES = (
     "FIELD_QUALIFICATION.md",
     "FIELD_QUALIFICATION_RESULT.json",
 )
-MANIFEST_REQUIRED_FILES = tuple(name for name in REQUIRED_FILES if name != "EVIDENCE_MANIFEST.json")
+MANIFEST_REQUIRED_FILES = MANIFEST_EVIDENCE_FILES
 ROW_RE = re.compile(r"^\|\s*(H\d{2})\s*\|.*?\|\s*(PASS|FAIL|NOT_RUN)\s*\|", re.MULTILINE)
 
 
@@ -72,9 +75,7 @@ def validate_field_acceptance_identity(metadata: dict, acceptance: dict) -> None
     missing = [key for key, value in expected.items() if not value]
     if missing:
         raise SystemExit("RUN_METADATA.json missing identity fields: " + ", ".join(missing))
-    mismatched = [
-        key for key, value in expected.items() if identity.get(key) != value
-    ]
+    mismatched = [key for key, value in expected.items() if identity.get(key) != value]
     if mismatched:
         details = ", ".join(
             f"{key} expected={expected[key]!r} actual={identity.get(key)!r}" for key in mismatched
@@ -90,7 +91,7 @@ def validate_evidence_manifest(run_dir: Path) -> None:
     missing = [name for name in MANIFEST_REQUIRED_FILES if name not in verified_names]
     if missing:
         raise SystemExit(
-            "EVIDENCE_MANIFEST.json does not cover required evidence files: " + ", ".join(missing)
+            "EVIDENCE_MANIFEST.json does not cover stable physical evidence files: " + ", ".join(missing)
         )
 
 
@@ -137,7 +138,7 @@ def main() -> int:
 
     print(f"hardware qualification run finalized: {run_dir}")
     print("matrix: H01-H14 PASS")
-    print("evidence: present, non-empty, and manifest verified")
+    print("evidence: present, non-empty, and stable physical manifest verified")
     print("field acceptance identity: matches RUN_METADATA.json")
     print("qualification result: passed=true")
     return 0
