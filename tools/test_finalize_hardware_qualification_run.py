@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """Regression tests for physical qualification finalization gates."""
 
+import tempfile
 import unittest
+from pathlib import Path
 
 from finalize_hardware_qualification_run import (
+    MANIFEST_REQUIRED_FILES,
     MATRIX_IDS,
     parse_matrix_results,
+    validate_evidence_manifest,
     validate_field_acceptance_identity,
 )
 
@@ -75,6 +79,43 @@ class FieldAcceptanceIdentityTests(unittest.TestCase):
                 self.acceptance(device_id="bridge-02"),
             )
         self.assertIn("device_id", str(context.exception))
+
+
+class EvidenceManifestCoverageTests(unittest.TestCase):
+    def _write_manifest(self, run_dir: Path, names):
+        import hashlib
+        import json
+
+        entries = []
+        for name in names:
+            path = run_dir / name
+            path.write_text(name + "\n", encoding="utf-8")
+            entries.append(
+                {
+                    "name": name,
+                    "bytes": path.stat().st_size,
+                    "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                }
+            )
+        (run_dir / "EVIDENCE_MANIFEST.json").write_text(
+            json.dumps({"schema": 1, "files": entries}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+    def test_accepts_complete_manifest_coverage(self):
+        with tempfile.TemporaryDirectory() as temp:
+            run_dir = Path(temp)
+            self._write_manifest(run_dir, MANIFEST_REQUIRED_FILES)
+            validate_evidence_manifest(run_dir)
+
+    def test_rejects_manifest_missing_required_evidence(self):
+        with tempfile.TemporaryDirectory() as temp:
+            run_dir = Path(temp)
+            self._write_manifest(run_dir, MANIFEST_REQUIRED_FILES[:-1])
+            with self.assertRaises(SystemExit) as context:
+                validate_evidence_manifest(run_dir)
+            self.assertIn("does not cover required evidence files", str(context.exception))
+            self.assertIn(MANIFEST_REQUIRED_FILES[-1], str(context.exception))
 
 
 if __name__ == "__main__":

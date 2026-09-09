@@ -5,8 +5,8 @@ The operator checklist is the source of truth for H01-H14. This tool only
 changes a run from IN_PROGRESS to COMPLETE when every matrix row is explicitly
 marked PASS, the field-acceptance identity matches RUN_METADATA.json, all
 required evidence files are present and non-empty, and the evidence manifest
-verifies every recorded hash. It also records the completion timestamp in
-RUN_METADATA.json.
+verifies every required evidence hash. It also records the completion timestamp
+in RUN_METADATA.json.
 """
 
 from __future__ import annotations
@@ -34,6 +34,7 @@ REQUIRED_FILES = (
     "FIELD_QUALIFICATION.md",
     "FIELD_QUALIFICATION_RESULT.json",
 )
+MANIFEST_REQUIRED_FILES = tuple(name for name in REQUIRED_FILES if name != "EVIDENCE_MANIFEST.json")
 ROW_RE = re.compile(r"^\|\s*(H\d{2})\s*\|.*?\|\s*(PASS|FAIL|NOT_RUN)\s*\|", re.MULTILINE)
 
 
@@ -85,6 +86,12 @@ def validate_evidence_manifest(run_dir: Path) -> None:
     result = verify_evidence_manifest(run_dir / "EVIDENCE_MANIFEST.json")
     if result.get("passed") is not True:
         raise SystemExit("EVIDENCE_MANIFEST.json verification failed: " + str(result.get("error", "unknown error")))
+    verified_names = {entry.get("name") for entry in result.get("files", []) if isinstance(entry, dict)}
+    missing = [name for name in MANIFEST_REQUIRED_FILES if name not in verified_names]
+    if missing:
+        raise SystemExit(
+            "EVIDENCE_MANIFEST.json does not cover required evidence files: " + ", ".join(missing)
+        )
 
 
 def main() -> int:
