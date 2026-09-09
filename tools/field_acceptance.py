@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the bridge's live HTTP and TCP NMEA checks as one field test.
+"""Run the bridge's live HTTP, TCP NMEA, and optional receiver serial checks.
 
 The runner keeps the raw CSV/JSON evidence from each checker and writes one
 combined JSON verdict. It intentionally does not claim physical recovery:
@@ -35,6 +35,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--duration", type=float, default=1800.0)
     parser.add_argument("--interval", type=float, default=1.0)
     parser.add_argument("--nmea-port", type=int, default=10110)
+    parser.add_argument("--serial-port", help="Optional receiver UART/COM port")
+    parser.add_argument("--serial-baud", type=int, default=9600)
     parser.add_argument("--min-http-success", type=float, default=95.0)
     parser.add_argument("--min-fresh", type=float, default=90.0)
     parser.add_argument("--max-stale-samples", type=int, default=60)
@@ -61,6 +63,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("min-valid-percent must be between 0 and 100")
     if args.nmea_port < 1 or args.nmea_port > 65535:
         parser.error("nmea-port must be between 1 and 65535")
+    if args.serial_baud <= 0:
+        parser.error("serial-baud must be > 0")
     if args.min_sentences < 0 or args.max_stale_samples < 0:
         parser.error("minimum sentences and maximum stale samples must be >= 0")
     if args.min_recovery_attempts is not None and args.min_recovery_attempts < 0:
@@ -76,6 +80,8 @@ def main(argv: list[str] | None = None) -> int:
     live_csv = output / "live.csv"
     live_json = output / "live-verdict.json"
     nmea_json = output / "nmea-verdict.json"
+    serial_log = output / "serial.log"
+    serial_json = output / "serial-verdict.json"
     combined_json = output / "FIELD_ACCEPTANCE.json"
 
     live_command = [
@@ -95,10 +101,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.max_recovery_attempts is not None:
         live_command += ["--max-recovery-attempts", str(args.max_recovery_attempts)]
 
+    host = args.base_url.replace("http://", "").replace("https://", "").split("/", 1)[0].split(":", 1)[0]
     nmea_command = [
         sys.executable, str(Path(__file__).with_name("nmea_stream_check.py")),
-        args.base_url.replace("http://", "").replace("https://", "").split("/", 1)[0].split(":", 1)[0],
-        str(args.nmea_port), str(args.duration),
+        host, str(args.nmea_port), str(args.duration),
         "--min-sentences", str(args.min_sentences),
         "--min-valid-percent", str(args.min_valid_percent),
         "--min-duration-s", str(args.duration),
@@ -107,26 +113,55 @@ def main(argv: list[str] | None = None) -> int:
     for required in args.require_type:
         nmea_command += ["--require-type", required]
 
+    serial_command = None
+    if args.serial_port:
+        serial_command = [
+            sys.executable, str(Path(__file__).with_name("serial_nmea_capture.py")),
+            args.serial_port, str(serial_log),
+            "--baud", str(args.serial_baud),
+            "--seconds", str(args.duration),
+            "--min-sentences", str(args.min_sentences),
+            "--min-valid-percent", str(args.min_valid_percent),
+            "--json-output", str(serial_json),
+        ]
+        for required in args.require_type:
+            serial_command += ["--require-type", required]
+
     # Run sequentially to keep laptop/bridge resource usage predictable. The
-    # NMEA check starts after the HTTP capture, so both durations are explicit
-    # evidence windows rather than pretending they were simultaneous.
+    # checks use separate evidence windows and are never presented as a
+    # simultaneous physical capture.
     live_rc, live_output = _run(live_command)
     nmea_rc, nmea_output = _run(nmea_command)
+    if serial_command:
+        serial_rc, serial_output = _run(serial_command)
+    else:
+        serial_rc, serial_output = None, ""
 
     live_report = _load(live_json) if live_json.exists() else {"passed": False, "failures": ["missing live verdict"]}
     nmea_report = _load(nmea_json) if nmea_json.exists() else {"passed": False, "failures": ["missing NMEA verdict"]}
+    serial_report = None
+    if serial_command:
+        serial_report = _load(serial_json) if serial_json.exists() else {"passed": False, "failures": ["missing serial verdict"]}
+
+    checks_passed = bool(live_report.get("passed")) and bool(nmea_report.get("passed"))
+    if serial_report is not None:
+        checks_passed = checks_passed and bool(serial_report.get("passed"))
+
     combined = {
-        "schema_version": 1,
+        "schema_version": 2,
         "base_url": args.base_url,
         "requested_duration_s": args.duration,
         "live": live_report,
         "nmea": nmea_report,
+        "serial": serial_report,
         "live_exit_code": live_rc,
         "nmea_exit_code": nmea_rc,
-        "passed": bool(live_report.get("passed")) and bool(nmea_report.get("passed")),
+        "serial_exit_code": serial_rc,
+        "passed": checks_passed,
         "physical_recovery_verified": False,
         "notes": [
-            "HTTP and TCP NMEA checks use separate evidence windows.",
+            "HTTP, TCP NMEA, and optional receiver serial checks use separate evidence windows.",
+            "The serial check is included only when --serial-port is supplied.",
             "physical_recovery_verified remains false until a controlled recovery capture is qualified.",
         ],
     }
@@ -141,6 +176,8 @@ def main(argv: list[str] | None = None) -> int:
         print(live_output)
     if nmea_output:
         print(nmea_output)
+    if serial_output:
+        print(serial_output)
     return 0 if combined["passed"] else 1
 
 
