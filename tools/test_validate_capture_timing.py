@@ -37,6 +37,7 @@ class ValidateCaptureTimingTests(unittest.TestCase):
     def test_accepts_monotonic_timing(self):
         result = validate_capture_timing.validate_timing(self._run())
         self.assertTrue(result["valid"])
+        self.assertEqual(result["duration_s"], 10.0)
         self.assertEqual(result["live_last_elapsed_s"], 1.0)
 
     def test_rejects_non_monotonic_live_timing(self):
