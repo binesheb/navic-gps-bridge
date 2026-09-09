@@ -43,6 +43,18 @@ EVIDENCE_FILES = (
     "FIELD_QUALIFICATION_RESULT.json",
 )
 
+# Files whose bytes are stable physical evidence and therefore belong in the
+# manifest. The manifest itself and derived qualification records are validated
+# separately because they are produced or updated after evidence collection.
+MANIFEST_EVIDENCE_FILES = (
+    "nmea-verdict.json",
+    "live.csv",
+    "serial.log",
+    "recovery-qualification.json",
+    "recovery-verification.json",
+    "FIELD_ACCEPTANCE.json",
+)
+
 SAFE = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
