@@ -21,17 +21,28 @@ def main(argv=None):
     p.add_argument("--timeout", type=float, default=3.0)
     p.add_argument("--reconnect-interval", type=float, default=1.0,
                    help="seconds to wait before retrying a disconnected NMEA stream")
+    p.add_argument("--quality-gate", action="store_true",
+                   help="validate the completed capture against quality thresholds")
+    p.add_argument("--max-http-errors", type=int, default=0)
+    p.add_argument("--max-nmea-reconnects", type=int, default=0)
+    p.add_argument("--min-live-rate-hz", type=float, default=0.5)
+    p.add_argument("--min-nmea-sentences", type=int, default=1)
     a = p.parse_args(argv)
     if a.duration <= 0 or a.interval <= 0 or a.timeout <= 0 or a.reconnect_interval <= 0:
         p.error("duration, interval, timeout, and reconnect-interval must be > 0")
     if not 1 <= a.nmea_port <= 65535:
         p.error("nmea-port must be between 1 and 65535")
+    if a.max_http_errors < 0 or a.max_nmea_reconnects < 0 or a.min_nmea_sentences < 0:
+        p.error("quality count thresholds must be >= 0")
+    if a.min_live_rate_hz <= 0:
+        p.error("min-live-rate-hz must be > 0")
 
     out = Path(a.output_dir); out.mkdir(parents=True, exist_ok=True)
     live_path = out / "live.csv"
     nmea_path = out / "nmea.log"
     timeline_path = out / "nmea_timeline.log"
     meta_path = out / "CAPTURE.json"
+    quality_path = out / "CAPTURE_QUALITY.json"
     stop = threading.Event(); errors = []
     start = time.monotonic(); wall_start = time.time()
     nmea_count = 0
@@ -113,8 +124,24 @@ def main(argv=None):
               "nmea_timeline_records": timeline_records, "nmea_timeline": "nmea_timeline.log",
               "errors": errors, "simultaneous_window": True}
     meta_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    quality_passed = True
+    if a.quality_gate:
+        try:
+            from validate_capture_quality import evaluate
+            quality = evaluate(report, max_http_errors=a.max_http_errors,
+                               max_nmea_reconnects=a.max_nmea_reconnects,
+                               min_live_rate=a.min_live_rate_hz,
+                               min_nmea_sentences=a.min_nmea_sentences)
+        except (ImportError, KeyError, TypeError, ValueError) as exc:
+            quality = {"schema_version": 1, "passed": False,
+                       "failures": [f"quality gate error: {exc}"]}
+        quality_path.write_text(json.dumps(quality, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        quality_passed = quality.get("passed") is True
+        print(json.dumps(quality, indent=2, sort_keys=True))
+
     print(json.dumps(report, indent=2, sort_keys=True))
-    return 0 if samples and nmea_count else 1
+    return 0 if samples and nmea_count and quality_passed else 1
 
 if __name__ == "__main__":
     raise SystemExit(main())
