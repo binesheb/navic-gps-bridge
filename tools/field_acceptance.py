@@ -47,12 +47,26 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-recovery-attempts", type=int)
     parser.add_argument("--username")
     parser.add_argument("--password")
+    parser.add_argument("--device-id", help="Stable bridge hardware identifier for evidence")
+    parser.add_argument("--firmware-revision", help="Firmware commit/tag under test")
+    parser.add_argument("--receiver-model", help="GNSS receiver model under test")
+    parser.add_argument("--test-id", help="Unique field-test or qualification case identifier")
     args = parser.parse_args(argv)
+
+    identity_values = {
+        "device_id": args.device_id,
+        "firmware_revision": args.firmware_revision,
+        "receiver_model": args.receiver_model,
+        "test_id": args.test_id,
+    }
+    supplied_identity = [key for key, value in identity_values.items() if value]
+    if supplied_identity and len(supplied_identity) != len(identity_values):
+        parser.error("device-id, firmware-revision, receiver-model, and test-id must be supplied together")
+    identity = identity_values if len(supplied_identity) == len(identity_values) else None
 
     for name, value in (("duration", args.duration), ("interval", args.interval),
                         ("min-http-success", args.min_http_success),
-                        ("min-fresh", args.min_fresh),
-                        ("min-valid-percent", args.min_valid_percent)):
+                        ("min-fresh", args.min_fresh), ("min-valid-percent", args.min_valid_percent)):
         if not math.isfinite(value):
             parser.error(f"{name} must be finite")
     if args.duration <= 0 or args.interval <= 0:
@@ -127,9 +141,6 @@ def main(argv: list[str] | None = None) -> int:
         for required in args.require_type:
             serial_command += ["--require-type", required]
 
-    # Run sequentially to keep laptop/bridge resource usage predictable. The
-    # checks use separate evidence windows and are never presented as a
-    # simultaneous physical capture.
     live_rc, live_output = _run(live_command)
     nmea_rc, nmea_output = _run(nmea_command)
     if serial_command:
@@ -148,9 +159,10 @@ def main(argv: list[str] | None = None) -> int:
         checks_passed = checks_passed and bool(serial_report.get("passed"))
 
     combined = {
-        "schema_version": 2,
+        "schema_version": 3,
         "base_url": args.base_url,
         "requested_duration_s": args.duration,
+        "identity": identity,
         "live": live_report,
         "nmea": nmea_report,
         "serial": serial_report,
@@ -162,6 +174,7 @@ def main(argv: list[str] | None = None) -> int:
         "notes": [
             "HTTP, TCP NMEA, and optional receiver serial checks use separate evidence windows.",
             "The serial check is included only when --serial-port is supplied.",
+            "Identity metadata is recorded when all four identity fields are supplied.",
             "physical_recovery_verified remains false until a controlled recovery capture is qualified.",
         ],
     }
