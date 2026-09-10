@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -46,12 +47,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--min-recovery-attempts", type=int)
     parser.add_argument("--max-recovery-attempts", type=int)
     parser.add_argument("--username")
-    parser.add_argument("--password")
+    parser.add_argument("--password", help=argparse.SUPPRESS)
+    parser.add_argument("--password-env",
+                        help="Read the HTTP password from this environment variable; the secret is never placed in argv")
     parser.add_argument("--device-id", help="Stable bridge hardware identifier for evidence")
     parser.add_argument("--firmware-revision", help="Firmware commit/tag under test")
     parser.add_argument("--receiver-model", help="GNSS receiver model under test")
     parser.add_argument("--test-id", help="Unique field-test or qualification case identifier")
     args = parser.parse_args(argv)
+
+    if args.password is not None:
+        parser.error("--password is not supported because command-line arguments can expose credentials; use --password-env")
+    if args.password_env and not os.environ.get(args.password_env):
+        parser.error(f"environment variable {args.password_env!r} is not set")
 
     identity_values = {
         "device_id": args.device_id,
@@ -109,7 +117,9 @@ def main(argv: list[str] | None = None) -> int:
         "--json-output", str(live_json),
     ]
     if args.username is not None:
-        live_command += ["--username", args.username, "--password", args.password or ""]
+        live_command += ["--username", args.username]
+        if args.password_env:
+            live_command += ["--password-env", args.password_env]
     if args.min_recovery_attempts is not None:
         live_command += ["--min-recovery-attempts", str(args.min_recovery_attempts)]
     if args.max_recovery_attempts is not None:
@@ -175,6 +185,7 @@ def main(argv: list[str] | None = None) -> int:
             "HTTP, TCP NMEA, and optional receiver serial checks use separate evidence windows.",
             "The serial check is included only when --serial-port is supplied.",
             "Identity metadata is recorded when all four identity fields are supplied.",
+            "HTTP credentials are supplied through an environment variable and are never passed as a process argument.",
             "physical_recovery_verified remains false until a controlled recovery capture is qualified.",
         ],
     }
