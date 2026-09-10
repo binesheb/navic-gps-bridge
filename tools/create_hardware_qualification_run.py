@@ -71,12 +71,34 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--receiver-firmware", default="")
     parser.add_argument("--antenna", default="")
     parser.add_argument("--uart-baud", type=int, default=9600)
+    parser.add_argument("--silence-limit-seconds", type=float, default=None)
+    parser.add_argument("--recovery-cooldown-seconds", type=float, default=None)
+    parser.add_argument("--geofence-center-lat", type=float, default=None)
+    parser.add_argument("--geofence-center-lon", type=float, default=None)
+    parser.add_argument("--geofence-radius-meters", type=float, default=None)
     return parser.parse_args()
 
 
 def validate_identifier(name: str, value: str) -> None:
     if not value or len(value) > 200 or not SAFE.fullmatch(value):
         raise SystemExit(f"invalid {name}: use only letters, digits, '.', '_' and '-'")
+
+
+def validate_optional_positive(name: str, value: float | None) -> None:
+    if value is not None and value <= 0:
+        raise SystemExit(f"{name} must be positive when provided")
+
+
+def validate_geofence(args: argparse.Namespace) -> None:
+    center_values = (args.geofence_center_lat, args.geofence_center_lon, args.geofence_radius_meters)
+    supplied = [value is not None for value in center_values]
+    if any(supplied) and not all(supplied):
+        raise SystemExit("geofence center latitude, longitude, and radius must be provided together")
+    if args.geofence_center_lat is not None and not -90 <= args.geofence_center_lat <= 90:
+        raise SystemExit("--geofence-center-lat must be between -90 and 90")
+    if args.geofence_center_lon is not None and not -180 <= args.geofence_center_lon <= 180:
+        raise SystemExit("--geofence-center-lon must be between -180 and 180")
+    validate_optional_positive("--geofence-radius-meters", args.geofence_radius_meters)
 
 
 def main() -> int:
@@ -86,6 +108,9 @@ def main() -> int:
 
     if args.uart_baud <= 0:
         raise SystemExit("--uart-baud must be positive")
+    validate_optional_positive("--silence-limit-seconds", args.silence_limit_seconds)
+    validate_optional_positive("--recovery-cooldown-seconds", args.recovery_cooldown_seconds)
+    validate_geofence(args)
 
     run_dir = args.output.resolve()
     run_dir.mkdir(parents=True, exist_ok=False)
@@ -105,6 +130,19 @@ def main() -> int:
         "operator": args.operator,
         "started_at": started,
         "completed_at": None,
+        "qualification_limits": {
+            "silence_limit_seconds": args.silence_limit_seconds,
+            "recovery_cooldown_seconds": args.recovery_cooldown_seconds,
+        },
+        "geofence": (
+            {
+                "center_lat": args.geofence_center_lat,
+                "center_lon": args.geofence_center_lon,
+                "radius_meters": args.geofence_radius_meters,
+            }
+            if args.geofence_center_lat is not None
+            else None
+        ),
     }
     (run_dir / "RUN_METADATA.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
 
@@ -117,6 +155,12 @@ def main() -> int:
         f"- Device: `{args.device}`",
         f"- Firmware commit: `{args.firmware_commit}`",
         f"- Receiver: `{args.receiver}`",
+        "",
+        "## Entry-gate configuration",
+        "",
+        f"- Silence limit: `{args.silence_limit_seconds if args.silence_limit_seconds is not None else 'NOT_SET'}` seconds",
+        f"- Recovery cooldown: `{args.recovery_cooldown_seconds if args.recovery_cooldown_seconds is not None else 'NOT_SET'}` seconds",
+        f"- Geofence: `{args.geofence_center_lat}, {args.geofence_center_lon}` / `{args.geofence_radius_meters}` m" if args.geofence_center_lat is not None else "- Geofence: `NOT_SET`",
         "",
         "## Matrix",
         "",
