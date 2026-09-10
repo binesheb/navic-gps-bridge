@@ -23,7 +23,8 @@ def main(argv=None):
     parser.add_argument("--duration", type=float, default=1800,
                         help="Capture duration in seconds (default: 1800)")
     parser.add_argument("--username")
-    parser.add_argument("--password", help=argparse.SUPPRESS)
+    parser.add_argument("--password",
+                        help=argparse.SUPPRESS)
     parser.add_argument("--password-env",
                         help="Read the HTTP password from this environment variable")
     parser.add_argument("--timeout", type=float, default=5.0)
