@@ -3,9 +3,10 @@
 
 The helper closes the operator-error gap between a qualification run scaffold
 and its final evidence manifest. It reads the run identity from
-RUN_METADATA.json, requires every standard evidence artifact to be present and
-non-empty, and delegates hashing/schema construction to the canonical manifest
-builder.
+RUN_METADATA.json, requires every stable physical evidence artifact to be
+present and non-empty, and delegates hashing/schema construction to the
+canonical manifest builder. Derived qualification records are validated by the
+finalizer separately because they are produced after evidence collection.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ import argparse
 import json
 from pathlib import Path
 
-from tools.create_hardware_qualification_run import EVIDENCE_FILES
+from tools.create_hardware_qualification_run import MANIFEST_EVIDENCE_FILES
 from tools.generate_evidence_manifest import build_manifest
 
 REQUIRED_IDENTITY = ("device", "firmware_commit", "receiver", "test_id")
@@ -40,9 +41,9 @@ def prepare_manifest(run: Path) -> dict:
     if missing_identity:
         raise ValueError("missing identity metadata: " + ", ".join(missing_identity))
 
-    evidence_names = [name for name in EVIDENCE_FILES if name != "EVIDENCE_MANIFEST.json"]
-    empty = []
+    evidence_names = list(MANIFEST_EVIDENCE_FILES)
     missing = []
+    empty = []
     for name in evidence_names:
         path = run / name
         if not path.is_file():
