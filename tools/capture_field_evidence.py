@@ -8,7 +8,23 @@ import socket
 import threading
 import time
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 from urllib.request import Request, urlopen
+
+
+def parse_bridge_host(base_url: str) -> str:
+    """Return a socket-safe hostname from an HTTP(S) bridge URL."""
+    try:
+        parsed = urlsplit(base_url)
+    except ValueError as exc:
+        raise ValueError(f"invalid bridge URL: {exc}") from exc
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError("bridge URL must use http or https")
+    if not parsed.hostname:
+        raise ValueError("bridge URL must contain a hostname")
+    # URL zone identifiers are percent-encoded (e.g. %25eth0); socket APIs
+    # expect the decoded scope form (e.g. %eth0).
+    return unquote(parsed.hostname)
 
 
 def main(argv=None):
@@ -36,6 +52,10 @@ def main(argv=None):
         p.error("quality count thresholds must be >= 0")
     if a.min_live_rate_hz <= 0:
         p.error("min-live-rate-hz must be > 0")
+    try:
+        host = parse_bridge_host(a.base_url)
+    except ValueError as exc:
+        p.error(str(exc))
 
     out = Path(a.output_dir); out.mkdir(parents=True, exist_ok=True)
     live_path = out / "live.csv"
@@ -51,8 +71,6 @@ def main(argv=None):
     nmea_disconnects = 0
     timeline_records = 0
     lock = threading.Lock()
-
-    host = a.base_url.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0]
 
     def timeline(event, payload=""):
         nonlocal timeline_records
