@@ -34,25 +34,29 @@ def preflight(
     min_live_rate: float,
     min_nmea_sentences: int,
 ) -> dict:
-    checks = [
-        _run_check("capture", lambda: validate_capture(run)),
-        _run_check("integrity", lambda: validate_integrity(run)),
-        _run_check("timing", lambda: validate_timing(run)),
-    ]
+    # Read CAPTURE.json once and reuse the same snapshot for the quality gate.
+    # This avoids a race if the evidence directory is being copied or updated
+    # while preflight is running.
+    capture_check = _run_check("capture", lambda: validate_capture(run))
+    checks = [capture_check]
 
-    quality = None
-    try:
-        capture = validate_capture(run)
-        quality = evaluate(
-            capture,
-            max_http_errors=max_http_errors,
-            max_nmea_reconnects=max_nmea_reconnects,
-            min_live_rate=min_live_rate,
-            min_nmea_sentences=min_nmea_sentences,
-        )
-        checks.append({"name": "quality", "passed": quality["passed"], "result": quality})
-    except (OSError, UnicodeError, ValueError, KeyError) as exc:
-        checks.append({"name": "quality", "passed": False, "error": str(exc)})
+    checks.append(_run_check("integrity", lambda: validate_integrity(run)))
+    checks.append(_run_check("timing", lambda: validate_timing(run)))
+
+    if capture_check["passed"]:
+        try:
+            quality = evaluate(
+                capture_check["result"],
+                max_http_errors=max_http_errors,
+                max_nmea_reconnects=max_nmea_reconnects,
+                min_live_rate=min_live_rate,
+                min_nmea_sentences=min_nmea_sentences,
+            )
+            checks.append({"name": "quality", "passed": quality["passed"], "result": quality})
+        except (OSError, UnicodeError, ValueError, KeyError) as exc:
+            checks.append({"name": "quality", "passed": False, "error": str(exc)})
+    else:
+        checks.append({"name": "quality", "passed": False, "error": capture_check["error"]})
 
     return {
         "schema_version": 1,
