@@ -5,9 +5,9 @@ The operator checklist is the source of truth for H01-H14. This tool only
 changes a run from IN_PROGRESS to COMPLETE when every matrix row is explicitly
 marked PASS, the field-acceptance identity matches RUN_METADATA.json, all
 required evidence files are present and non-empty, and the evidence manifest
-verifies every stable physical evidence hash. Derived qualification records are
-validated separately. It also records the completion timestamp in
-RUN_METADATA.json.
+verifies every stable physical evidence hash. Derived qualification records
+are re-verified from the archived evidence before completion. It also records
+the completion timestamp in RUN_METADATA.json.
 """
 
 from __future__ import annotations
@@ -21,9 +21,11 @@ from pathlib import Path
 try:
     from tools.create_hardware_qualification_run import MANIFEST_EVIDENCE_FILES
     from tools.verify_evidence_manifest import verify as verify_evidence_manifest
+    from tools.verify_recovery_report import verify as verify_recovery_report
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
     from create_hardware_qualification_run import MANIFEST_EVIDENCE_FILES
     from verify_evidence_manifest import verify as verify_evidence_manifest
+    from verify_recovery_report import verify as verify_recovery_report
 
 MATRIX_IDS = tuple(f"H{i:02d}" for i in range(1, 15))
 REQUIRED_FILES = (
@@ -96,6 +98,21 @@ def validate_evidence_manifest(run_dir: Path) -> None:
         )
 
 
+def validate_recovery_evidence(run_dir: Path) -> None:
+    """Recompute recovery evidence hashes instead of trusting a stored verdict."""
+    stored = load_json(run_dir / "recovery-verification.json")
+    if stored.get("passed") is not True:
+        raise SystemExit("recovery-verification.json must contain passed=true")
+    try:
+        current = verify_recovery(run_dir / "recovery-qualification.json", run_dir)
+    except (OSError, ValueError) as exc:
+        raise SystemExit("recovery qualification evidence verification failed: " + str(exc)) from exc
+    if current.get("passed") is not True:
+        raise SystemExit("recovery qualification evidence no longer matches its recorded hashes")
+    if stored.get("evidence") != current.get("evidence"):
+        raise SystemExit("recovery-verification.json is stale; regenerate it from the archived evidence")
+
+
 def main() -> int:
     args = parse_args()
     run_dir = args.run.resolve()
@@ -127,6 +144,7 @@ def main() -> int:
 
     validate_evidence_manifest(run_dir)
     validate_field_acceptance_identity(metadata, load_json(run_dir / "FIELD_ACCEPTANCE.json"))
+    validate_recovery_evidence(run_dir)
 
     result_path = run_dir / "FIELD_QUALIFICATION_RESULT.json"
     result = load_json(result_path)
@@ -141,6 +159,7 @@ def main() -> int:
     print("matrix: H01-H14 PASS")
     print("evidence: present, non-empty, and stable physical manifest verified")
     print("field acceptance identity: matches RUN_METADATA.json")
+    print("recovery evidence: independently re-verified and stored verdict matches")
     print("qualification result: passed=true")
     return 0
 
