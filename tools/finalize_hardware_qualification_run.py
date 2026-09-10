@@ -91,7 +91,8 @@ def validate_evidence_manifest(run_dir: Path) -> None:
     missing = [name for name in MANIFEST_REQUIRED_FILES if name not in verified_names]
     if missing:
         raise SystemExit(
-            "EVIDENCE_MANIFEST.json does not cover stable physical evidence files: " + ", ".join(missing)
+            "EVIDENCE_MANIFEST.json does not cover required evidence files (stable physical evidence): "
+            + ", ".join(missing)
         )
 
 
