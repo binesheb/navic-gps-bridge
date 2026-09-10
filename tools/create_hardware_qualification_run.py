@@ -84,6 +84,14 @@ def validate_identifier(name: str, value: str) -> None:
         raise SystemExit(f"invalid {name}: use only letters, digits, '.', '_' and '-'")
 
 
+def validate_metadata_text(name: str, value: str, *, required: bool = False) -> None:
+    """Reject control characters so traceability fields remain line-safe and auditable."""
+    if required and not value:
+        raise SystemExit(f"{name} must not be empty")
+    if len(value) > 200 or any(ord(char) < 32 or ord(char) == 127 for char in value):
+        raise SystemExit(f"invalid {name}: must be at most 200 characters with no control characters")
+
+
 def validate_optional_positive(name: str, value: float | None) -> None:
     if value is not None and value <= 0:
         raise SystemExit(f"{name} must be positive when provided")
@@ -105,6 +113,9 @@ def main() -> int:
     args = parse_args()
     for name in ("device", "test-id", "firmware-commit"):
         validate_identifier(name, getattr(args, name.replace("-", "_")))
+
+    for name in ("receiver", "board", "operator", "receiver-firmware", "antenna"):
+        validate_metadata_text(name, getattr(args, name.replace("-", "_")))
 
     if args.uart_baud <= 0:
         raise SystemExit("--uart-baud must be positive")
