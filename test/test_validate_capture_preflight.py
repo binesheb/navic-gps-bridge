@@ -1,18 +1,17 @@
 import unittest
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from tools.validate_capture_preflight import preflight
 
 
 class ValidateCapturePreflightTests(unittest.TestCase):
-    def test_all_checks_pass(self):
+    def test_all_checks_pass_and_capture_is_validated_once(self):
         run = Path("capture")
         capture = {"duration_s": 10.0, "live_samples": 10, "nmea_sentences": 5}
         integrity = {"valid": True}
         timing = {"valid": True}
-        with patch("tools.validate_capture_preflight.validate_capture", return_value=capture), patch(
+        with patch("tools.validate_capture_preflight.validate_capture", return_value=capture) as capture_validator, patch(
             "tools.validate_capture_preflight.validate_integrity", return_value=integrity
         ), patch("tools.validate_capture_preflight.validate_timing", return_value=timing):
             result = preflight(
@@ -23,7 +22,11 @@ class ValidateCapturePreflightTests(unittest.TestCase):
                 min_nmea_sentences=1,
             )
         self.assertTrue(result["passed"])
-        self.assertEqual([check["name"] for check in result["checks"]], ["capture", "integrity", "timing", "quality"])
+        self.assertEqual(
+            [check["name"] for check in result["checks"]],
+            ["capture", "integrity", "timing", "quality"],
+        )
+        capture_validator.assert_called_once_with(run)
 
     def test_quality_failure_fails_preflight(self):
         run = Path("capture")
