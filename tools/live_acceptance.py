@@ -8,6 +8,7 @@ whether the verdict passes or fails so the evidence can be inspected later.
 
 import argparse
 import math
+import os
 import sys
 
 from analyze_live_capture import analyze
@@ -22,7 +23,10 @@ def main(argv=None):
     parser.add_argument("--duration", type=float, default=1800,
                         help="Capture duration in seconds (default: 1800)")
     parser.add_argument("--username")
-    parser.add_argument("--password")
+    parser.add_argument("--password",
+                        help=argparse.SUPPRESS)
+    parser.add_argument("--password-env",
+                        help="Read the HTTP password from this environment variable")
     parser.add_argument("--timeout", type=float, default=5.0)
     parser.add_argument("--min-http-success", type=float, default=95.0)
     parser.add_argument("--min-fresh", type=float, default=90.0)
@@ -35,6 +39,11 @@ def main(argv=None):
     parser.add_argument("--json-output",
                         help="Optional machine-readable JSON verdict path")
     args = parser.parse_args(argv)
+
+    if args.password is not None:
+        parser.error("--password is not supported because command-line arguments can expose credentials; use --password-env")
+    if args.password_env and not os.environ.get(args.password_env):
+        parser.error(f"environment variable {args.password_env!r} is not set")
 
     for name, value in (("interval", args.interval),
                         ("timeout", args.timeout),
@@ -60,10 +69,11 @@ def main(argv=None):
     if args.min_duration_s is not None and args.min_duration_s < 0:
         parser.error("min-duration-s must be >= 0")
 
+    password = os.environ.get(args.password_env) if args.password_env else None
     try:
         samples, failures = capture(
             args.base_url, args.output, args.interval, args.duration,
-            args.username, args.password, args.timeout,
+            args.username, password, args.timeout,
         )
     except KeyboardInterrupt:
         print("Acceptance capture interrupted; partial CSV retained.", file=sys.stderr)
