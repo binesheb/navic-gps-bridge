@@ -16,6 +16,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 
 def _run(command: list[str]) -> tuple[int, str]:
@@ -27,6 +28,20 @@ def _run(command: list[str]) -> tuple[int, str]:
 def _load(path: Path) -> dict:
     with path.open(encoding="utf-8") as stream:
         return json.load(stream)
+
+
+def _nmea_host(base_url: str) -> str:
+    """Extract a TCP host safely, including bracketed IPv6 endpoints."""
+    parsed = urlsplit(base_url)
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError("base_url must use http or https")
+    try:
+        host = parsed.hostname
+    except ValueError as exc:
+        raise ValueError(f"invalid base_url: {exc}") from exc
+    if not host:
+        raise ValueError("base_url must contain a hostname or IP address")
+    return host
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -97,6 +112,11 @@ def main(argv: list[str] | None = None) -> int:
             and args.min_recovery_attempts > args.max_recovery_attempts):
         parser.error("min-recovery-attempts cannot exceed max-recovery-attempts")
 
+    try:
+        host = _nmea_host(args.base_url)
+    except ValueError as exc:
+        parser.error(str(exc))
+
     output = Path(args.output_dir)
     output.mkdir(parents=True, exist_ok=True)
     live_csv = output / "live.csv"
@@ -125,7 +145,6 @@ def main(argv: list[str] | None = None) -> int:
     if args.max_recovery_attempts is not None:
         live_command += ["--max-recovery-attempts", str(args.max_recovery_attempts)]
 
-    host = args.base_url.replace("http://", "").replace("https://", "").split("/", 1)[0].split(":", 1)[0]
     nmea_command = [
         sys.executable, str(Path(__file__).with_name("nmea_stream_check.py")),
         host, str(args.nmea_port), str(args.duration),
