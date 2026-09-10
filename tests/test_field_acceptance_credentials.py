@@ -1,16 +1,23 @@
 import importlib.util
+import sys
 from pathlib import Path
 
 
-FIELD_ACCEPTANCE = Path(__file__).parents[1] / "tools" / "field_acceptance.py"
+REPO_ROOT = Path(__file__).parents[1]
+TOOLS_DIR = REPO_ROOT / "tools"
+FIELD_ACCEPTANCE = TOOLS_DIR / "field_acceptance.py"
 
 
 def _load_module():
-    spec = importlib.util.spec_from_file_location("field_acceptance", FIELD_ACCEPTANCE)
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    spec.loader.exec_module(module)
-    return module
+    sys.path.insert(0, str(TOOLS_DIR))
+    try:
+        spec = importlib.util.spec_from_file_location("field_acceptance", FIELD_ACCEPTANCE)
+        module = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.path.pop(0)
 
 
 def test_password_argument_is_rejected(monkeypatch, tmp_path):
@@ -34,8 +41,6 @@ def test_password_env_is_forwarded_without_secret_in_command(monkeypatch, tmp_pa
 
     def fake_run(command):
         commands.append(command)
-        if "live_acceptance.py" in " ".join(command):
-            return 1, ""
         return 1, ""
 
     monkeypatch.setattr(module, "_run", fake_run)
