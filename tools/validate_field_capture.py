@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 
 
@@ -52,9 +53,9 @@ def validate_capture(run: Path) -> dict:
         try:
             number = float(value)
         except (TypeError, ValueError) as exc:
-            raise ValueError(f"{key} must be a positive number") from exc
-        if number <= 0:
-            raise ValueError(f"{key} must be a positive number")
+            raise ValueError(f"{key} must be a positive finite number") from exc
+        if not math.isfinite(number) or number <= 0:
+            raise ValueError(f"{key} must be a positive finite number")
         return number
 
     positive_number("duration_s")
