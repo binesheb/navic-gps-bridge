@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 from pathlib import Path
 
 from validate_capture_integrity import validate_integrity
@@ -43,6 +44,8 @@ def _validate_sequence(name: str, values: list[float], duration: float) -> None:
         raise ValueError(f"{name} contains no timing records")
     previous = -1e-9
     for index, value in enumerate(values, start=1):
+        if not math.isfinite(value):
+            raise ValueError(f"{name} timing record {index} is not finite")
         if value < 0 or value > duration + 0.25:
             raise ValueError(f"{name} timing record {index} is outside capture duration")
         if value < previous:
