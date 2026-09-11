@@ -19,8 +19,8 @@ REQUIRED_ARTIFACTS = ("CAPTURE.json", "live.csv", "nmea.log", "nmea_timeline.log
 
 def load_report(run: Path) -> dict:
     path = run / "CAPTURE.json"
-    if not path.is_file():
-        raise ValueError("CAPTURE.json is missing")
+    if not path.is_file() or path.is_symlink():
+        raise ValueError("CAPTURE.json must be a regular file")
     try:
         report = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
@@ -39,6 +39,9 @@ def validate_capture(run: Path) -> dict:
     missing = [name for name in REQUIRED_ARTIFACTS if not (run / name).is_file()]
     if missing:
         raise ValueError("missing capture artifacts: " + ", ".join(missing))
+    symlinked = [name for name in REQUIRED_ARTIFACTS if (run / name).is_symlink()]
+    if symlinked:
+        raise ValueError("capture artifacts must be regular files: " + ", ".join(symlinked))
     empty = [name for name in REQUIRED_ARTIFACTS if (run / name).stat().st_size == 0]
     if empty:
         raise ValueError("empty capture artifacts: " + ", ".join(empty))
@@ -47,6 +50,8 @@ def validate_capture(run: Path) -> dict:
         raise ValueError("unsupported CAPTURE.json schema_version; expected 2")
     if report.get("simultaneous_window") is not True:
         raise ValueError("capture is not marked as a simultaneous window")
+    if report.get("nmea_timeline") != "nmea_timeline.log":
+        raise ValueError("nmea_timeline must reference nmea_timeline.log")
 
     def positive_number(key: str) -> float:
         value = report.get(key)
