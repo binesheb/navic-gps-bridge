@@ -9,6 +9,7 @@ into a false hardware PASS.
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import math
 from pathlib import Path
@@ -74,6 +75,30 @@ def validate_capture(run: Path) -> dict:
     if report.get("nmea_port") not in range(1, 65536):
         raise ValueError("nmea_port must be between 1 and 65535")
 
+    live_path = run / "live.csv"
+    with live_path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.reader(handle))
+    if not rows or not rows[0]:
+        raise ValueError("live.csv must contain a header")
+    live_rows = len(rows) - 1
+    if live_rows != report["live_samples"]:
+        raise ValueError(
+            f"live_samples does not match live.csv rows: metadata={report['live_samples']}, file={live_rows}"
+        )
+
+    nmea_lines = [line for line in (run / "nmea.log").read_text(encoding="utf-8").splitlines() if line]
+    nmea_sentences = sum(line.startswith("$") for line in nmea_lines)
+    if nmea_sentences != report["nmea_sentences"]:
+        raise ValueError(
+            f"nmea_sentences does not match nmea.log: metadata={report['nmea_sentences']}, file={nmea_sentences}"
+        )
+
+    timeline_lines = [line for line in (run / "nmea_timeline.log").read_text(encoding="utf-8").splitlines() if line]
+    if len(timeline_lines) != report["nmea_timeline_records"]:
+        raise ValueError(
+            "nmea_timeline_records does not match nmea_timeline.log: "
+            f"metadata={report['nmea_timeline_records']}, file={len(timeline_lines)}"
+        )
     return report
 
 
