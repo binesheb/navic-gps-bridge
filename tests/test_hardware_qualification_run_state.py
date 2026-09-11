@@ -77,3 +77,45 @@ def test_start_rejects_already_started_run(tmp_path, monkeypatch):
 
     with pytest.raises(SystemExit, match="must be NOT_STARTED"):
         start_main()
+
+
+def test_start_rejects_preexisting_start_timestamp(tmp_path, monkeypatch):
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "RUN_METADATA.json").write_text(
+        json.dumps(
+            {
+                "status": "NOT_STARTED",
+                "created_at": "2026-09-11T12:00:00Z",
+                "started_at": "2026-09-11T12:01:00Z",
+                "completed_at": None,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run / "FIELD_QUALIFICATION_RUN.md").write_text("# Run\n", encoding="utf-8")
+    monkeypatch.setattr("sys.argv", ["start_hardware_qualification_run.py", str(run)])
+
+    with pytest.raises(SystemExit, match="already contains a physical test start timestamp"):
+        start_main()
+
+
+def test_start_rejects_preexisting_completion_timestamp(tmp_path, monkeypatch):
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "RUN_METADATA.json").write_text(
+        json.dumps(
+            {
+                "status": "NOT_STARTED",
+                "created_at": "2026-09-11T12:00:00Z",
+                "started_at": None,
+                "completed_at": "2026-09-11T12:05:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run / "FIELD_QUALIFICATION_RUN.md").write_text("# Run\n", encoding="utf-8")
+    monkeypatch.setattr("sys.argv", ["start_hardware_qualification_run.py", str(run)])
+
+    with pytest.raises(SystemExit, match="already contains a completion timestamp"):
+        start_main()
