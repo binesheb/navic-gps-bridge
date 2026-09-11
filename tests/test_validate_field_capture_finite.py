@@ -15,6 +15,7 @@ REQUIRED = {
     "nmea_connections": 1,
     "nmea_timeline_records": 61,
     "nmea_port": 10110,
+    "nmea_timeline": "nmea_timeline.log",
 }
 
 
@@ -40,3 +41,19 @@ def test_accepts_finite_timing_metadata(tmp_path):
     report = validate_capture(make_run(tmp_path))
     assert report["duration_s"] == 60.0
     assert report["interval_s"] == 1.0
+
+
+def test_rejects_wrong_timeline_reference(tmp_path):
+    run = make_run(tmp_path, nmea_timeline="other.log")
+    with pytest.raises(ValueError, match="nmea_timeline must reference nmea_timeline.log"):
+        validate_capture(run)
+
+
+def test_rejects_symlinked_artifact(tmp_path):
+    run = make_run(tmp_path)
+    target = tmp_path / "outside.log"
+    target.write_text("outside\n", encoding="utf-8")
+    (run / "nmea.log").unlink()
+    (run / "nmea.log").symlink_to(target)
+    with pytest.raises(ValueError, match="capture artifacts must be regular files"):
+        validate_capture(run)
