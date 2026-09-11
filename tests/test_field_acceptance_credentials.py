@@ -58,3 +58,28 @@ def test_password_env_is_forwarded_without_secret_in_command(monkeypatch, tmp_pa
     assert "--password" not in command
     assert "secret-value" not in command
     assert command[-1] == "NAVIC_TEST_PASSWORD"
+
+
+def test_password_env_is_forwarded_without_username(monkeypatch, tmp_path):
+    module = _load_module()
+    monkeypatch.setenv("NAVIC_TEST_PASSWORD", "secret-value")
+    commands = []
+
+    def fake_run(command):
+        commands.append(command)
+        return 1, ""
+
+    monkeypatch.setattr(module, "_run", fake_run)
+    monkeypatch.setattr(module, "_load", lambda path: {"passed": False, "failures": ["test"]})
+
+    rc = module.main([
+        "http://bridge", str(tmp_path), "--duration", "1",
+        "--password-env", "NAVIC_TEST_PASSWORD",
+    ])
+
+    assert rc == 1
+    live_commands = [command for command in commands if "live_acceptance.py" in " ".join(command)]
+    assert len(live_commands) == 1
+    command = live_commands[0]
+    assert command[-2:] == ["--password-env", "NAVIC_TEST_PASSWORD"]
+    assert "secret-value" not in command
