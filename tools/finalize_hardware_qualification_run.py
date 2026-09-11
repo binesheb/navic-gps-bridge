@@ -59,6 +59,16 @@ def load_json(path: Path) -> dict:
     return value
 
 
+def validate_run_state(metadata: dict) -> None:
+    """Require the explicit physical-test lifecycle state before finalization."""
+    status = metadata.get("status")
+    if status != "IN_PROGRESS":
+        raise SystemExit(f"cannot finalize; run status must be IN_PROGRESS, got {status!r}")
+    started_at = metadata.get("started_at")
+    if not isinstance(started_at, str) or not started_at.strip():
+        raise SystemExit("cannot finalize; RUN_METADATA.json is missing the physical test start timestamp")
+
+
 def parse_matrix_results(text: str) -> dict[str, str]:
     """Return the latest recognized result for each H01-H14 matrix row."""
     return {case_id: result for case_id, result in ROW_RE.findall(text)}
@@ -104,7 +114,7 @@ def validate_recovery_evidence(run_dir: Path) -> None:
     if stored.get("passed") is not True:
         raise SystemExit("recovery-verification.json must contain passed=true")
     try:
-        current = verify_recovery(run_dir / "recovery-qualification.json", run_dir)
+        current = verify_recovery_report(run_dir / "recovery-qualification.json", run_dir)
     except (OSError, ValueError) as exc:
         raise SystemExit("recovery qualification evidence verification failed: " + str(exc)) from exc
     if current.get("passed") is not True:
@@ -124,8 +134,7 @@ def main() -> int:
     metadata = load_json(metadata_path)
     if not checklist_path.is_file():
         raise SystemExit("missing FIELD_QUALIFICATION_RUN.md")
-    if metadata.get("status") == "COMPLETE":
-        raise SystemExit("run is already COMPLETE")
+    validate_run_state(metadata)
 
     rows = parse_matrix_results(checklist_path.read_text(encoding="utf-8"))
     missing_rows = [case_id for case_id in MATRIX_IDS if case_id not in rows]
