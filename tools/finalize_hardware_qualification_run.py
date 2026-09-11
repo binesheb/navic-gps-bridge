@@ -59,14 +59,31 @@ def load_json(path: Path) -> dict:
     return value
 
 
+def parse_utc_timestamp(value: object, field_name: str) -> datetime:
+    if not isinstance(value, str) or not value.strip():
+        raise SystemExit(f"cannot finalize; RUN_METADATA.json has no valid {field_name} timestamp")
+    try:
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise SystemExit(f"cannot finalize; RUN_METADATA.json has invalid {field_name} timestamp: {value!r}") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise SystemExit(f"cannot finalize; {field_name} timestamp must include a timezone")
+    return parsed.astimezone(timezone.utc)
+
+
 def validate_run_state(metadata: dict) -> None:
-    """Require the explicit physical-test lifecycle state before finalization."""
+    """Require an internally consistent physical-test lifecycle before finalization."""
     status = metadata.get("status")
     if status != "IN_PROGRESS":
         raise SystemExit(f"cannot finalize; run status must be IN_PROGRESS, got {status!r}")
-    started_at = metadata.get("started_at")
-    if not isinstance(started_at, str) or not started_at.strip():
-        raise SystemExit("cannot finalize; RUN_METADATA.json is missing the physical test start timestamp")
+
+    created_at = parse_utc_timestamp(metadata.get("created_at"), "creation")
+    started_at = parse_utc_timestamp(metadata.get("started_at"), "physical test start")
+
+    if started_at < created_at:
+        raise SystemExit("cannot finalize; physical test start timestamp precedes run creation timestamp")
+    if metadata.get("completed_at") is not None:
+        raise SystemExit("cannot finalize; IN_PROGRESS run already contains a completion timestamp")
 
 
 def parse_matrix_results(text: str) -> dict[str, str]:
