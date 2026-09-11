@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -93,8 +94,8 @@ def validate_metadata_text(name: str, value: str, *, required: bool = False) -> 
 
 
 def validate_optional_positive(name: str, value: float | None) -> None:
-    if value is not None and value <= 0:
-        raise SystemExit(f"{name} must be positive when provided")
+    if value is not None and (not math.isfinite(value) or value <= 0):
+        raise SystemExit(f"{name} must be a finite positive number when provided")
 
 
 def validate_geofence(args: argparse.Namespace) -> None:
@@ -102,10 +103,14 @@ def validate_geofence(args: argparse.Namespace) -> None:
     supplied = [value is not None for value in center_values]
     if any(supplied) and not all(supplied):
         raise SystemExit("geofence center latitude, longitude, and radius must be provided together")
-    if args.geofence_center_lat is not None and not -90 <= args.geofence_center_lat <= 90:
-        raise SystemExit("--geofence-center-lat must be between -90 and 90")
-    if args.geofence_center_lon is not None and not -180 <= args.geofence_center_lon <= 180:
-        raise SystemExit("--geofence-center-lon must be between -180 and 180")
+    if args.geofence_center_lat is not None and (
+        not math.isfinite(args.geofence_center_lat) or not -90 <= args.geofence_center_lat <= 90
+    ):
+        raise SystemExit("--geofence-center-lat must be finite and between -90 and 90")
+    if args.geofence_center_lon is not None and (
+        not math.isfinite(args.geofence_center_lon) or not -180 <= args.geofence_center_lon <= 180
+    ):
+        raise SystemExit("--geofence-center-lon must be finite and between -180 and 180")
     validate_optional_positive("--geofence-radius-meters", args.geofence_radius_meters)
 
 
