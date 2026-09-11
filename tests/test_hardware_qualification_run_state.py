@@ -12,9 +12,53 @@ def test_finalize_requires_in_progress_state():
         validate_run_state({"status": "NOT_STARTED", "started_at": "2026-09-11T12:00:00Z"})
 
 
-def test_finalize_requires_start_timestamp():
-    with pytest.raises(SystemExit, match="start timestamp"):
-        validate_run_state({"status": "IN_PROGRESS", "started_at": None})
+def test_finalize_requires_valid_creation_timestamp():
+    with pytest.raises(SystemExit, match="creation"):
+        validate_run_state({
+            "status": "IN_PROGRESS",
+            "created_at": "not-a-timestamp",
+            "started_at": "2026-09-11T12:01:00Z",
+            "completed_at": None,
+        })
+
+
+def test_finalize_requires_valid_start_timestamp():
+    with pytest.raises(SystemExit, match="physical test start"):
+        validate_run_state({
+            "status": "IN_PROGRESS",
+            "created_at": "2026-09-11T12:00:00Z",
+            "started_at": "not-a-timestamp",
+            "completed_at": None,
+        })
+
+
+def test_finalize_requires_start_after_creation():
+    with pytest.raises(SystemExit, match="precedes run creation"):
+        validate_run_state({
+            "status": "IN_PROGRESS",
+            "created_at": "2026-09-11T12:02:00Z",
+            "started_at": "2026-09-11T12:01:00Z",
+            "completed_at": None,
+        })
+
+
+def test_finalize_rejects_existing_completion_timestamp():
+    with pytest.raises(SystemExit, match="completion timestamp"):
+        validate_run_state({
+            "status": "IN_PROGRESS",
+            "created_at": "2026-09-11T12:00:00Z",
+            "started_at": "2026-09-11T12:01:00Z",
+            "completed_at": "2026-09-11T12:05:00Z",
+        })
+
+
+def test_finalize_accepts_consistent_lifecycle_timestamps():
+    validate_run_state({
+        "status": "IN_PROGRESS",
+        "created_at": "2026-09-11T12:00:00Z",
+        "started_at": "2026-09-11T12:01:00+00:00",
+        "completed_at": None,
+    })
 
 
 def test_scaffold_records_creation_time_not_test_start(tmp_path, monkeypatch):
