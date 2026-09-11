@@ -17,6 +17,8 @@ from verify_recovery_report import verify as verify_recovery
 def run(bundle: Path, output: Path, max_recovery_seconds=None, max_nmea_outage_seconds=None) -> dict:
     bundle = bundle.resolve()
     output = output.resolve()
+    if output == bundle or bundle in output.parents:
+        raise ValueError("output directory must be outside the evidence bundle")
     output.mkdir(parents=True, exist_ok=True)
     manifest_path = bundle / "EVIDENCE_MANIFEST.json"
     preflight = validate_manifest(manifest_path)
