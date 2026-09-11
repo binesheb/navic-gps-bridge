@@ -112,6 +112,20 @@ def validate_field_acceptance_identity(metadata: dict, acceptance: dict) -> None
         raise SystemExit("FIELD_ACCEPTANCE identity does not match RUN_METADATA.json: " + details)
 
 
+def validate_required_files(run_dir: Path) -> None:
+    """Require every finalization input to be a regular file, never a symlink."""
+    symlinked = [name for name in REQUIRED_FILES if (run_dir / name).is_symlink()]
+    if symlinked:
+        raise SystemExit("required evidence files must not be symlinks: " + ", ".join(symlinked))
+
+    missing = [name for name in REQUIRED_FILES if not (run_dir / name).is_file()]
+    if missing:
+        raise SystemExit("missing required evidence files: " + ", ".join(missing))
+    empty = [name for name in REQUIRED_FILES if (run_dir / name).stat().st_size == 0]
+    if empty:
+        raise SystemExit("required evidence files are empty: " + ", ".join(empty))
+
+
 def validate_evidence_manifest(run_dir: Path) -> None:
     result = verify_evidence_manifest(run_dir / "EVIDENCE_MANIFEST.json")
     if result.get("passed") is not True:
@@ -161,13 +175,7 @@ def main() -> int:
     if non_pass:
         raise SystemExit("cannot finalize; matrix cases are not PASS: " + ", ".join(non_pass))
 
-    missing = [name for name in REQUIRED_FILES if not (run_dir / name).is_file()]
-    if missing:
-        raise SystemExit("missing required evidence files: " + ", ".join(missing))
-    empty = [name for name in REQUIRED_FILES if (run_dir / name).stat().st_size == 0]
-    if empty:
-        raise SystemExit("required evidence files are empty: " + ", ".join(empty))
-
+    validate_required_files(run_dir)
     validate_evidence_manifest(run_dir)
     validate_field_acceptance_identity(metadata, load_json(run_dir / "FIELD_ACCEPTANCE.json"))
     validate_recovery_evidence(run_dir)
@@ -183,7 +191,7 @@ def main() -> int:
 
     print(f"hardware qualification run finalized: {run_dir}")
     print("matrix: H01-H14 PASS")
-    print("evidence: present, non-empty, and stable physical manifest verified")
+    print("evidence: present, non-empty, regular files, and stable physical manifest verified")
     print("field acceptance identity: matches RUN_METADATA.json")
     print("recovery evidence: independently re-verified and stored verdict matches")
     print("qualification result: passed=true")
