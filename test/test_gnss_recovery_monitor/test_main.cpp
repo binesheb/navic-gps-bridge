@@ -30,11 +30,34 @@ void test_cooldown_handles_millis_rollover() {
   TEST_ASSERT_EQUAL_UINT32(2, monitor.status().recoveryCount);
 }
 
+void test_reconfigure_preserves_recovery_history_and_last_data() {
+  GnssRecoveryMonitor monitor(1000, 5000);
+  monitor.begin(100);
+  monitor.markData(500);
+  TEST_ASSERT_FALSE(monitor.shouldRecover(1200, 500));
+
+  monitor.reconfigure(500, 2000);
+  TEST_ASSERT_EQUAL_UINT32(500, monitor.status().lastDataMs);
+  TEST_ASSERT_EQUAL_UINT32(500, monitor.status().silenceMs);
+  TEST_ASSERT_EQUAL_UINT32(2000, monitor.status().cooldownMs);
+  TEST_ASSERT_EQUAL_UINT32(0, monitor.status().recoveryCount);
+
+  TEST_ASSERT_TRUE(monitor.shouldRecover(1001, 500));
+  TEST_ASSERT_EQUAL_UINT32(1, monitor.status().recoveryCount);
+  TEST_ASSERT_EQUAL_UINT32(1001, monitor.status().lastRecoveryMs);
+
+  // A reconfiguration must not reset cooldown history and permit an immediate retry.
+  monitor.reconfigure(100, 2000);
+  TEST_ASSERT_FALSE(monitor.shouldRecover(1500, 500));
+  TEST_ASSERT_EQUAL_UINT32(1, monitor.status().recoveryCount);
+}
+
 void setup() {
   UNITY_BEGIN();
   RUN_TEST(test_silence_triggers_once_per_cooldown);
   RUN_TEST(test_fresh_data_clears_recovering_state);
   RUN_TEST(test_cooldown_handles_millis_rollover);
+  RUN_TEST(test_reconfigure_preserves_recovery_history_and_last_data);
   UNITY_END();
 }
 
