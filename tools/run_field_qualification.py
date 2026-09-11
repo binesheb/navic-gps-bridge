@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 
 from field_qualification_report import render
@@ -61,12 +62,16 @@ def main(argv=None):
     parser.add_argument("--max-recovery-seconds", type=float)
     parser.add_argument("--max-nmea-outage-seconds", type=float)
     args = parser.parse_args(argv)
+    if args.max_recovery_seconds is not None and (
+        not math.isfinite(args.max_recovery_seconds) or args.max_recovery_seconds < 0
+    ):
+        parser.error("max-recovery-seconds must be finite and >= 0")
+    if args.max_nmea_outage_seconds is not None and (
+        not math.isfinite(args.max_nmea_outage_seconds) or args.max_nmea_outage_seconds < 0
+    ):
+        parser.error("max-nmea-outage-seconds must be finite and >= 0")
     if not args.bundle_dir.is_dir():
         parser.error(f"bundle directory does not exist: {args.bundle_dir}")
-    if args.max_recovery_seconds is not None and args.max_recovery_seconds < 0:
-        parser.error("max-recovery-seconds must be >= 0")
-    if args.max_nmea_outage_seconds is not None and args.max_nmea_outage_seconds < 0:
-        parser.error("max-nmea-outage-seconds must be >= 0")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     try:
         result = run(args.bundle_dir, args.output_dir, args.max_recovery_seconds, args.max_nmea_outage_seconds)
