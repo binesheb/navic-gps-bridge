@@ -48,6 +48,8 @@ def build_manifest(run: Path, names: list[str], *, device: str, firmware_commit:
     files = []
     for name in sorted(normalized):
         path = run / name
+        if path.is_symlink():
+            raise ValueError(f"evidence file must not be a symlink: {name}")
         if not path.is_file():
             raise ValueError(f"evidence file does not exist: {name}")
         files.append({"name": name, "bytes": path.stat().st_size, "sha256": sha256(path)})
