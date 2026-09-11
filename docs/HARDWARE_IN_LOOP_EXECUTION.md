@@ -25,7 +25,13 @@ python tools/create_hardware_qualification_run.py evidence/bridge-01-receiver-a 
   --test-id receiver-a-2026-09-10
 ```
 
-A scaffolded `NOT_STARTED` result is not evidence of a pass.
+A scaffolded `NOT_STARTED` result is not evidence of a pass. Immediately before the physical receiver baseline and H01-H14 execution, explicitly start the run:
+
+```bash
+python tools/start_hardware_qualification_run.py evidence/bridge-01-receiver-a
+```
+
+This changes only the lifecycle state to `IN_PROGRESS` and records the actual physical-test start timestamp. It does not change any H01-H14 result. The finalizer will reject a run that is still `NOT_STARTED`.
 
 ## 2. Receiver-only baseline
 
@@ -125,7 +131,7 @@ python tools/verify_evidence_manifest.py evidence/bridge-01-receiver-a/EVIDENCE_
 python tools/finalize_hardware_qualification_run.py evidence/bridge-01-receiver-a
 ```
 
-The finalizer is the closure gate, not a result generator. It must remain impossible for the tooling to turn `NOT_RUN` or `FAIL` into `PASS`.
+The finalizer is the closure gate, not a result generator. It must remain impossible for the tooling to turn `NOT_RUN` or `FAIL` into `PASS`, and it requires the run to have been explicitly started as `IN_PROGRESS` before finalization.
 
 ## 9. Interpretation boundary
 
