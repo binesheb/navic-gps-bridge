@@ -138,8 +138,8 @@ def main(argv: list[str] | None = None) -> int:
     ]
     if args.username is not None:
         live_command += ["--username", args.username]
-        if args.password_env:
-            live_command += ["--password-env", args.password_env]
+    if args.password_env:
+        live_command += ["--password-env", args.password_env]
     if args.min_recovery_attempts is not None:
         live_command += ["--min-recovery-attempts", str(args.min_recovery_attempts)]
     if args.max_recovery_attempts is not None:
