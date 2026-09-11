@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from tools.finalize_hardware_qualification_run import validate_recovery_evidence
+from tools.finalize_hardware_qualification_run import validate_recovery_evidence, validate_required_files
 from tools.verify_recovery_report import sha256_file
 
 
@@ -46,3 +46,24 @@ def test_rejects_stale_verification_artifact(tmp_path):
     (run / "recovery-verification.json").write_text('{"passed": true, "evidence": {}}\n', encoding="utf-8")
     with pytest.raises(SystemExit, match="stale"):
         validate_recovery_evidence(run)
+
+
+def test_rejects_symlinked_required_evidence(tmp_path):
+    run = _write_bundle(tmp_path)
+    (run / "FIELD_ACCEPTANCE.json").symlink_to(run / "recovery-qualification.json")
+    with pytest.raises(SystemExit, match="must not be symlinks"):
+        validate_required_files(run)
+
+
+def test_accepts_regular_required_evidence(tmp_path):
+    run = _write_bundle(tmp_path)
+    for name in (
+        "nmea-verdict.json",
+        "serial.log",
+        "EVIDENCE_MANIFEST.json",
+        "FIELD_ACCEPTANCE.json",
+        "FIELD_QUALIFICATION.md",
+        "FIELD_QUALIFICATION_RESULT.json",
+    ):
+        (run / name).write_text("evidence\n", encoding="utf-8")
+    validate_required_files(run)
