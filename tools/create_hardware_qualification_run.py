@@ -45,9 +45,6 @@ EVIDENCE_FILES = (
     "FIELD_QUALIFICATION_RESULT.json",
 )
 
-# Files whose bytes are stable physical evidence and therefore belong in the
-# manifest. The manifest itself and derived qualification records are validated
-# separately because they are produced or updated after evidence collection.
 MANIFEST_EVIDENCE_FILES = (
     "nmea-verdict.json",
     "live.csv",
@@ -131,7 +128,7 @@ def main() -> int:
     run_dir = args.output.resolve()
     run_dir.mkdir(parents=True, exist_ok=False)
 
-    started = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    created = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     metadata = {
         "schema_version": 1,
         "status": "NOT_STARTED",
@@ -144,7 +141,8 @@ def main() -> int:
         "antenna": args.antenna,
         "uart_baud": args.uart_baud,
         "operator": args.operator,
-        "started_at": started,
+        "created_at": created,
+        "started_at": None,
         "completed_at": None,
         "qualification_limits": {
             "silence_limit_seconds": args.silence_limit_seconds,
