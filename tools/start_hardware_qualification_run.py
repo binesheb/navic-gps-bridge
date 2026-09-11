@@ -44,6 +44,11 @@ def main() -> int:
     if status != "NOT_STARTED":
         raise SystemExit(f"run must be NOT_STARTED before start; current status: {status!r}")
 
+    if metadata.get("started_at") is not None:
+        raise SystemExit("cannot start; NOT_STARTED run already contains a physical test start timestamp")
+    if metadata.get("completed_at") is not None:
+        raise SystemExit("cannot start; NOT_STARTED run already contains a completion timestamp")
+
     started = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     metadata["status"] = "IN_PROGRESS"
     metadata["started_at"] = started
