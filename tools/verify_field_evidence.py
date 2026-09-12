@@ -24,6 +24,8 @@ def verify_bundle(bundle: Path) -> list[str]:
     manifest_path = bundle / "EVIDENCE_MANIFEST.json"
     if not bundle.is_dir():
         return [f"bundle does not exist: {bundle}"]
+    if manifest_path.is_symlink():
+        return ["manifest must not be a symlink: EVIDENCE_MANIFEST.json"]
     if not manifest_path.is_file():
         return ["missing EVIDENCE_MANIFEST.json"]
 
@@ -67,6 +69,9 @@ def verify_bundle(bundle: Path) -> list[str]:
             continue
 
         path = bundle / name
+        if path.is_symlink():
+            failures.append(f"evidence file must not be a symlink: {name}")
+            continue
         if not path.is_file():
             failures.append(f"missing evidence file: {name}")
             continue
