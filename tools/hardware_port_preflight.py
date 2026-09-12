@@ -3,8 +3,9 @@
 
 This tool deliberately performs no writes to the target serial device. It verifies
 that pyserial is available, the requested port exists, and the port can be opened
-with the requested baud rate. It can optionally emit a JSON result for traceable
-field logs.
+with the requested baud rate. When the OS exposes USB metadata, that identity is
+recorded so a field run can prove which physical adapter was selected. Optional
+VID/PID expectations can fail closed before capture starts.
 """
 
 from __future__ import annotations
@@ -16,12 +17,24 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
+def parse_usb_id(value: str) -> int:
+    try:
+        parsed = int(value, 0)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("USB IDs must be hexadecimal (for example 0x10c4)") from exc
+    if not 0 <= parsed <= 0xFFFF:
+        raise argparse.ArgumentTypeError("USB IDs must be between 0x0000 and 0xffff")
+    return parsed
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Check that a physical serial port is ready for GNSS capture."
     )
     parser.add_argument("port", help="Serial port, e.g. COM5 or /dev/ttyUSB0")
     parser.add_argument("--baud", type=int, default=9600, help="Expected baud rate")
+    parser.add_argument("--expect-vid", type=parse_usb_id, help="Expected USB vendor ID, e.g. 0x10c4")
+    parser.add_argument("--expect-pid", type=parse_usb_id, help="Expected USB product ID, e.g. 0xea60")
     parser.add_argument("--json-output", type=Path, help="Write a machine-readable verdict")
     return parser.parse_args()
 
@@ -32,6 +45,31 @@ def verdict(ok: bool, **fields: object) -> dict[str, object]:
         "checked_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         **fields,
     }
+
+
+def port_identity(info: object) -> dict[str, object]:
+    """Return stable, JSON-safe identity metadata exposed by pyserial."""
+    fields = ("device", "vid", "pid", "serial_number", "manufacturer", "product", "location", "interface")
+    return {field: getattr(info, field, None) for field in fields}
+
+
+def identity_failures(
+    identity: dict[str, object], expect_vid: int | None, expect_pid: int | None
+) -> list[str]:
+    failures: list[str] = []
+    if expect_vid is not None:
+        actual = identity.get("vid")
+        if actual != expect_vid:
+            failures.append(
+                f"FAIL: USB vendor ID {actual!r} != expected 0x{expect_vid:04x}"
+            )
+    if expect_pid is not None:
+        actual = identity.get("pid")
+        if actual != expect_pid:
+            failures.append(
+                f"FAIL: USB product ID {actual!r} != expected 0x{expect_pid:04x}"
+            )
+    return failures
 
 
 def main() -> int:
@@ -59,41 +97,57 @@ def main() -> int:
                 detail="install requirements-field.txt before physical capture",
             )
         else:
-            ports = {item.device for item in list_ports.comports()}
-            if args.port not in ports:
+            port_info = next((item for item in list_ports.comports() if item.device == args.port), None)
+            if port_info is None:
                 result = verdict(
                     False,
                     port=args.port,
                     baud=args.baud,
                     error="port_not_found",
-                    available_ports=sorted(ports),
+                    available_ports=sorted(item.device for item in list_ports.comports()),
                 )
             else:
-                try:
-                    with serial.Serial(args.port, args.baud, timeout=0) as connection:
-                        opened = connection.is_open
-                except (OSError, serial.SerialException) as exc:
+                identity = port_identity(port_info)
+                failures = identity_failures(identity, args.expect_vid, args.expect_pid)
+                if failures:
                     result = verdict(
                         False,
                         port=args.port,
                         baud=args.baud,
-                        error="port_open_failed",
-                        detail=str(exc),
+                        error="port_identity_mismatch",
+                        identity=identity,
+                        failures=failures,
                     )
                 else:
-                    result = verdict(
-                        opened,
-                        port=args.port,
-                        baud=args.baud,
-                        error=None if opened else "port_not_open",
-                        detail="port opened successfully; no bytes were transmitted",
-                    )
+                    try:
+                        with serial.Serial(args.port, args.baud, timeout=0) as connection:
+                            opened = connection.is_open
+                    except (OSError, serial.SerialException) as exc:
+                        result = verdict(
+                            False,
+                            port=args.port,
+                            baud=args.baud,
+                            error="port_open_failed",
+                            identity=identity,
+                            detail=str(exc),
+                        )
+                    else:
+                        result = verdict(
+                            opened,
+                            port=args.port,
+                            baud=args.baud,
+                            identity=identity,
+                            error=None if opened else "port_not_open",
+                            detail="port opened successfully; no bytes were transmitted",
+                        )
 
     if args.json_output:
         args.json_output.parent.mkdir(parents=True, exist_ok=True)
         args.json_output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
 
     print(json.dumps(result, indent=2))
+    for failure in result.get("failures", []):
+        print(failure)
     return 0 if result["passed"] else 1
 
 
