@@ -66,18 +66,18 @@ def identity_failures(
 ) -> list[str]:
     failures: list[str] = []
     checks = (
-        ("vid", expect_vid, lambda value: f"0x{value:04x}" if isinstance(value, int) else repr(value)),
-        ("pid", expect_pid, lambda value: f"0x{value:04x}" if isinstance(value, int) else repr(value)),
-        ("serial_number", expect_serial_number, repr),
-        ("manufacturer", expect_manufacturer, repr),
-        ("product", expect_product, repr),
+        ("vid", "USB vendor ID", expect_vid, lambda value: f"0x{value:04x}" if isinstance(value, int) else repr(value)),
+        ("pid", "USB product ID", expect_pid, lambda value: f"0x{value:04x}" if isinstance(value, int) else repr(value)),
+        ("serial_number", "USB serial number", expect_serial_number, repr),
+        ("manufacturer", "USB manufacturer", expect_manufacturer, repr),
+        ("product", "USB product", expect_product, repr),
     )
-    for field, expected, formatter in checks:
+    for field, label, expected, formatter in checks:
         if expected is None:
             continue
         actual = identity.get(field)
         if actual != expected:
-            failures.append(f"FAIL: {field.replace('_', ' ')} {formatter(actual)} != expected {formatter(expected)}")
+            failures.append(f"FAIL: {label} {formatter(actual)} != expected {formatter(expected)}")
     return failures
 
 
