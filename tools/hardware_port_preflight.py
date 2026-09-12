@@ -5,7 +5,7 @@ This tool deliberately performs no writes to the target serial device. It verifi
 that pyserial is available, the requested port exists, and the port can be opened
 with the requested baud rate. When the OS exposes USB metadata, that identity is
 recorded so a field run can prove which physical adapter was selected. Optional
-VID/PID expectations can fail closed before capture starts.
+identity expectations can fail closed before capture starts.
 """
 
 from __future__ import annotations
@@ -35,6 +35,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--baud", type=int, default=9600, help="Expected baud rate")
     parser.add_argument("--expect-vid", type=parse_usb_id, help="Expected USB vendor ID, e.g. 0x10c4")
     parser.add_argument("--expect-pid", type=parse_usb_id, help="Expected USB product ID, e.g. 0xea60")
+    parser.add_argument("--expect-serial-number", help="Expected USB serial number")
+    parser.add_argument("--expect-manufacturer", help="Expected USB manufacturer string")
+    parser.add_argument("--expect-product", help="Expected USB product string")
     parser.add_argument("--json-output", type=Path, help="Write a machine-readable verdict")
     return parser.parse_args()
 
@@ -54,21 +57,27 @@ def port_identity(info: object) -> dict[str, object]:
 
 
 def identity_failures(
-    identity: dict[str, object], expect_vid: int | None, expect_pid: int | None
+    identity: dict[str, object],
+    expect_vid: int | None,
+    expect_pid: int | None,
+    expect_serial_number: str | None = None,
+    expect_manufacturer: str | None = None,
+    expect_product: str | None = None,
 ) -> list[str]:
     failures: list[str] = []
-    if expect_vid is not None:
-        actual = identity.get("vid")
-        if actual != expect_vid:
-            failures.append(
-                f"FAIL: USB vendor ID {actual!r} != expected 0x{expect_vid:04x}"
-            )
-    if expect_pid is not None:
-        actual = identity.get("pid")
-        if actual != expect_pid:
-            failures.append(
-                f"FAIL: USB product ID {actual!r} != expected 0x{expect_pid:04x}"
-            )
+    checks = (
+        ("vid", expect_vid, lambda value: f"0x{value:04x}" if isinstance(value, int) else repr(value)),
+        ("pid", expect_pid, lambda value: f"0x{value:04x}" if isinstance(value, int) else repr(value)),
+        ("serial_number", expect_serial_number, repr),
+        ("manufacturer", expect_manufacturer, repr),
+        ("product", expect_product, repr),
+    )
+    for field, expected, formatter in checks:
+        if expected is None:
+            continue
+        actual = identity.get(field)
+        if actual != expected:
+            failures.append(f"FAIL: {field.replace('_', ' ')} {formatter(actual)} != expected {formatter(expected)}")
     return failures
 
 
@@ -108,7 +117,14 @@ def main() -> int:
                 )
             else:
                 identity = port_identity(port_info)
-                failures = identity_failures(identity, args.expect_vid, args.expect_pid)
+                failures = identity_failures(
+                    identity,
+                    args.expect_vid,
+                    args.expect_pid,
+                    args.expect_serial_number,
+                    args.expect_manufacturer,
+                    args.expect_product,
+                )
                 if failures:
                     result = verdict(
                         False,
