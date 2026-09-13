@@ -69,6 +69,14 @@ jobs:
         working-directory: tools
         run: python -m unittest test_validate_field_bundle.py
 
+      - name: Run field capture structure self-tests
+        working-directory: tools
+        run: python -m unittest test_validate_field_capture.py
+
+      - name: Run simultaneous capture quality self-tests
+        working-directory: tools
+        run: python test_validate_capture_quality.py
+
       - name: Run field evidence qualification self-tests
         working-directory: tools
         run: python -m unittest test_qualify_field_evidence.py
