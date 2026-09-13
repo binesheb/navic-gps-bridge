@@ -152,8 +152,11 @@ def main(argv=None):
                 http_errors += 1; errors.append(f"HTTP: {exc}")
             stop.wait(a.interval)
     stop.set(); t.join(timeout=max(1.0, a.timeout + a.reconnect_interval + 0.5))
-    report = {"schema_version": 2, "base_url": a.base_url, "duration_s": a.duration, "interval_s": a.interval,
-              "started_unix_s": wall_start, "live_samples": samples, "http_errors": http_errors,
+    finished_unix = time.time()
+    observed_duration = max(0.0, finished_unix - wall_start)
+    report = {"schema_version": 2, "base_url": a.base_url, "duration_s": a.duration, "observed_duration_s": round(observed_duration, 3),
+              "interval_s": a.interval, "started_unix_s": wall_start, "finished_unix_s": finished_unix,
+              "live_samples": samples, "http_errors": http_errors,
               "nmea_sentences": nmea_count, "nmea_port": a.nmea_port, "nmea_connections": nmea_connections,
               "nmea_reconnects": nmea_reconnects, "nmea_disconnects": nmea_disconnects,
               "nmea_timeline_records": timeline_records, "nmea_timeline": "nmea_timeline.log",
