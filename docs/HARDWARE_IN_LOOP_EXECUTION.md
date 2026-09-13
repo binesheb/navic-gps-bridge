@@ -26,9 +26,19 @@ python tools/create_hardware_qualification_run.py evidence/bridge-01-receiver-a 
   --start
 ```
 
-If the run must be prepared before the physical test begins, omit `--start` first. The scaffold remains `NOT_STARTED`; the physical run should then be started by updating the lifecycle metadata only through a future dedicated start command rather than manually changing result rows. Until that command is available, prefer the atomic `--start` workflow above.
+If the run must be prepared before the physical test begins, create it without `--start`, then start it immediately before connecting the receiver or executing H01-H14:
 
-`--start` changes only the lifecycle state to `IN_PROGRESS` and records the physical-test start timestamp. It does not change any H01-H14 result or evidence artifact. The finalizer rejects a run that is still `NOT_STARTED`.
+```bash
+python tools/create_hardware_qualification_run.py evidence/bridge-01-receiver-a \
+  --device bridge-01 \
+  --receiver "GNSS receiver model" \
+  --firmware-commit YOUR_FIRMWARE_COMMIT \
+  --test-id receiver-a-2026-09-10
+
+python tools/start_hardware_qualification_run.py evidence/bridge-01-receiver-a
+```
+
+The dedicated start command is lifecycle-only: it requires `NOT_STARTED`, records the actual UTC start timestamp, changes the run to `IN_PROGRESS`, and leaves every H01-H14 result as `NOT_RUN`. It does not modify evidence artifacts. Never hand-edit lifecycle metadata or result rows.
 
 ## 2. Receiver-only baseline
 
