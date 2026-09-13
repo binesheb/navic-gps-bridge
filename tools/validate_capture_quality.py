@@ -22,8 +22,28 @@ def evaluate(report: dict, *, max_http_errors: int, max_nmea_reconnects: int,
     nmea_sentences = int(report["nmea_sentences"])
     http_errors = int(report.get("http_errors", 0))
     reconnects = int(report.get("nmea_reconnects", 0))
-    live_rate = live_samples / duration
+    connections = int(report.get("nmea_connections", 0))
     failures: list[str] = []
+    if not math.isfinite(duration) or duration <= 0:
+        failures.append(f"duration_s {duration!r} must be finite and > 0")
+        live_rate = 0.0
+    else:
+        live_rate = live_samples / duration
+    if live_samples < 1:
+        failures.append(f"live_samples {live_samples} < 1")
+    if nmea_sentences < 1:
+        failures.append(f"nmea_sentences {nmea_sentences} < 1")
+    if http_errors < 0:
+        failures.append(f"http_errors {http_errors} < 0")
+    if reconnects < 0:
+        failures.append(f"nmea_reconnects {reconnects} < 0")
+    if connections < 1:
+        failures.append(f"nmea_connections {connections} < 1")
+    if reconnects > max(0, connections - 1):
+        failures.append(
+            f"nmea_reconnects {reconnects} exceeds possible reconnects for "
+            f"nmea_connections {connections}"
+        )
     if http_errors > max_http_errors:
         failures.append(f"http_errors {http_errors} > {max_http_errors}")
     if reconnects > max_nmea_reconnects:
@@ -40,6 +60,7 @@ def evaluate(report: dict, *, max_http_errors: int, max_nmea_reconnects: int,
         "live_rate_hz": live_rate,
         "nmea_sentences": nmea_sentences,
         "http_errors": http_errors,
+        "nmea_connections": connections,
         "nmea_reconnects": reconnects,
         "thresholds": {
             "max_http_errors": max_http_errors,
