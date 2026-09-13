@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import signal
 import socket
 import threading
 import time
@@ -64,6 +65,7 @@ def main(argv=None):
     meta_path = out / "CAPTURE.json"
     quality_path = out / "CAPTURE_QUALITY.json"
     stop = threading.Event(); errors = []
+    interrupted = threading.Event()
     start = time.monotonic(); wall_start = time.time()
     nmea_count = 0
     nmea_connections = 0
@@ -71,6 +73,16 @@ def main(argv=None):
     nmea_disconnects = 0
     timeline_records = 0
     lock = threading.Lock()
+
+    def request_stop(signum, _frame):
+        interrupted.set()
+        stop.set()
+        print(f"capture interrupted by signal {signum}; preserving collected evidence")
+
+    previous_sigint = signal.getsignal(signal.SIGINT)
+    previous_sigterm = signal.getsignal(signal.SIGTERM)
+    signal.signal(signal.SIGINT, request_stop)
+    signal.signal(signal.SIGTERM, request_stop)
 
     def timeline(event, payload=""):
         nonlocal timeline_records
@@ -123,7 +135,7 @@ def main(argv=None):
     http_errors = 0
     with live_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fields); writer.writeheader()
-        while time.monotonic() - start < a.duration:
+        while time.monotonic() - start < a.duration and not stop.is_set():
             elapsed = time.monotonic() - start
             try:
                 req = Request(a.base_url.rstrip("/") + "/api/live", headers={"Cache-Control": "no-cache"})
@@ -140,7 +152,7 @@ def main(argv=None):
               "nmea_sentences": nmea_count, "nmea_port": a.nmea_port, "nmea_connections": nmea_connections,
               "nmea_reconnects": nmea_reconnects, "nmea_disconnects": nmea_disconnects,
               "nmea_timeline_records": timeline_records, "nmea_timeline": "nmea_timeline.log",
-              "errors": errors, "simultaneous_window": True}
+              "interrupted": interrupted.is_set(), "errors": errors, "simultaneous_window": True}
     meta_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     quality_passed = True
@@ -154,11 +166,16 @@ def main(argv=None):
         except (ImportError, KeyError, TypeError, ValueError) as exc:
             quality = {"schema_version": 1, "passed": False,
                        "failures": [f"quality gate error: {exc}"]}
+        quality["interrupted"] = interrupted.is_set()
         quality_path.write_text(json.dumps(quality, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        quality_passed = quality.get("passed") is True
+        quality_passed = quality.get("passed") is True and not interrupted.is_set()
         print(json.dumps(quality, indent=2, sort_keys=True))
 
     print(json.dumps(report, indent=2, sort_keys=True))
+    signal.signal(signal.SIGINT, previous_sigint)
+    signal.signal(signal.SIGTERM, previous_sigterm)
+    if interrupted.is_set():
+        return 130
     return 0 if samples and nmea_count and quality_passed else 1
 
 if __name__ == "__main__":
