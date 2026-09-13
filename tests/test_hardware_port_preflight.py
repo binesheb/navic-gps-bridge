@@ -64,3 +64,32 @@ def test_identity_expectations_fail_closed_on_mismatch() -> None:
 def test_identity_expectation_fails_when_metadata_is_unavailable() -> None:
     failures = identity_failures({"vid": None, "pid": None}, 0x10C4, None)
     assert failures == ["FAIL: USB vendor ID None != expected 0x10c4"]
+
+
+def test_topology_identity_expectations_match_exactly() -> None:
+    identity = {"location": "1-2", "interface": "0"}
+
+    assert identity_failures(
+        identity,
+        None,
+        None,
+        expect_location="1-2",
+        expect_interface="0",
+    ) == []
+
+
+def test_topology_identity_expectations_fail_closed_on_mismatch() -> None:
+    identity = {"location": "1-3", "interface": None}
+
+    failures = identity_failures(
+        identity,
+        None,
+        None,
+        expect_location="1-2",
+        expect_interface="0",
+    )
+
+    assert failures == [
+        "FAIL: USB topology location '1-3' != expected '1-2'",
+        "FAIL: USB interface None != expected '0'",
+    ]

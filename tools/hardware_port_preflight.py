@@ -38,6 +38,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--expect-serial-number", help="Expected USB serial number")
     parser.add_argument("--expect-manufacturer", help="Expected USB manufacturer string")
     parser.add_argument("--expect-product", help="Expected USB product string")
+    parser.add_argument("--expect-location", help="Expected OS-reported USB topology location")
+    parser.add_argument("--expect-interface", help="Expected OS-reported USB interface identifier")
     parser.add_argument("--json-output", type=Path, help="Write a machine-readable verdict")
     return parser.parse_args()
 
@@ -63,6 +65,8 @@ def identity_failures(
     expect_serial_number: str | None = None,
     expect_manufacturer: str | None = None,
     expect_product: str | None = None,
+    expect_location: str | None = None,
+    expect_interface: str | None = None,
 ) -> list[str]:
     failures: list[str] = []
     checks = (
@@ -71,6 +75,8 @@ def identity_failures(
         ("serial_number", "USB serial number", expect_serial_number, repr),
         ("manufacturer", "USB manufacturer", expect_manufacturer, repr),
         ("product", "USB product", expect_product, repr),
+        ("location", "USB topology location", expect_location, repr),
+        ("interface", "USB interface", expect_interface, repr),
     )
     for field, label, expected, formatter in checks:
         if expected is None:
@@ -124,6 +130,8 @@ def main() -> int:
                     args.expect_serial_number,
                     args.expect_manufacturer,
                     args.expect_product,
+                    args.expect_location,
+                    args.expect_interface,
                 )
                 if failures:
                     result = verdict(
