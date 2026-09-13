@@ -22,8 +22,9 @@ class ValidateFieldCaptureTests(unittest.TestCase):
             "nmea_port": 10110,
         }
         (root / "CAPTURE.json").write_text(json.dumps(payload), encoding="utf-8")
-        for name in validate_field_capture.REQUIRED_ARTIFACTS[1:]:
-            (root / name).write_text("data\n", encoding="utf-8")
+        (root / "live.csv").write_text("timestamp,lat,lon\n" + "2026-09-13T00:00:00Z,10.0,76.0\n" * 60, encoding="utf-8")
+        (root / "nmea.log").write_text("$GPGGA,1\n" * 120, encoding="utf-8")
+        (root / "nmea_timeline.log").write_text("timeline\n" * 121, encoding="utf-8")
         for name in empty:
             (root / name).write_text("", encoding="utf-8")
         return root
