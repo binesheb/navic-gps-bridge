@@ -2,6 +2,7 @@
 """Regression tests for validate_capture_quality."""
 from __future__ import annotations
 
+import json
 import tempfile
 from pathlib import Path
 
@@ -13,6 +14,7 @@ def _run_dir(**overrides):
     report = {
         "schema_version": 2,
         "simultaneous_window": True,
+        "nmea_timeline": "nmea_timeline.log",
         "duration_s": 10.0,
         "interval_s": 1.0,
         "live_samples": 10,
@@ -25,10 +27,11 @@ def _run_dir(**overrides):
     }
     report.update(overrides)
     run = Path(tempfile.mkdtemp())
-    (run / "CAPTURE.json").write_text(__import__("json").dumps(report), encoding="utf-8")
-    (run / "live.csv").write_text("elapsed_s,timestamp,fix,latitude,longitude,altitude_m,speed_kmh,satellites,health_state\n", encoding="utf-8")
-    (run / "nmea.log").write_text("$GPRMC,example\n", encoding="utf-8")
-    (run / "nmea_timeline.log").write_text("1\t1\tCONNECT\tport=10110\n", encoding="utf-8")
+    (run / "CAPTURE.json").write_text(json.dumps(report), encoding="utf-8")
+    live_rows = [f"2026-09-13T00:00:{i:02d}Z,10.0,76.0" for i in range(10)]
+    (run / "live.csv").write_text("timestamp,lat,lon\n" + "\n".join(live_rows) + "\n", encoding="utf-8")
+    (run / "nmea.log").write_text("$GPGGA,1\n" * 20, encoding="utf-8")
+    (run / "nmea_timeline.log").write_text("timeline\n" * 21, encoding="utf-8")
     return run, report
 
 
