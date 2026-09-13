@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Create a reproducible on-device hardware qualification run scaffold.
 
-This tool does not claim any test result. It creates a run directory containing
-metadata, a matrix checklist, and the standard evidence filenames so operators
-can execute the documented hardware qualification protocol without manually
-recreating its structure.
+This tool creates a run directory containing metadata, a matrix checklist, and
+the standard evidence filenames. By default the run is NOT_STARTED. With
+``--start`` it records the physical-test start timestamp and enters
+IN_PROGRESS without changing any H01-H14 result or evidence artifact.
 """
 
 from __future__ import annotations
@@ -74,6 +74,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--geofence-center-lat", type=float, default=None)
     parser.add_argument("--geofence-center-lon", type=float, default=None)
     parser.add_argument("--geofence-radius-meters", type=float, default=None)
+    parser.add_argument(
+        "--start",
+        action="store_true",
+        help="mark the run IN_PROGRESS and record the physical-test start timestamp",
+    )
     return parser.parse_args()
 
 
@@ -128,10 +133,13 @@ def main() -> int:
     run_dir = args.output.resolve()
     run_dir.mkdir(parents=True, exist_ok=False)
 
-    created = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    created_at = datetime.now(timezone.utc).replace(microsecond=0)
+    started_at = created_at if args.start else None
+    status = "IN_PROGRESS" if args.start else "NOT_STARTED"
+    created = created_at.isoformat().replace("+00:00", "Z")
     metadata = {
         "schema_version": 1,
-        "status": "NOT_STARTED",
+        "status": status,
         "test_id": args.test_id,
         "device": args.device,
         "board": args.board,
@@ -142,7 +150,7 @@ def main() -> int:
         "uart_baud": args.uart_baud,
         "operator": args.operator,
         "created_at": created,
-        "started_at": None,
+        "started_at": started_at.isoformat().replace("+00:00", "Z") if started_at else None,
         "completed_at": None,
         "qualification_limits": {
             "silence_limit_seconds": args.silence_limit_seconds,
@@ -190,7 +198,7 @@ def main() -> int:
         "",
         "## Final disposition",
         "",
-        "- Overall result: `NOT_STARTED`",
+        f"- Overall result: `{status}`",
         "- Physical receiver validation is required; synthetic CI results must not be recorded as hardware passes.",
     ]
     (run_dir / "FIELD_QUALIFICATION_RUN.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -204,6 +212,10 @@ def main() -> int:
 
     print(f"created hardware qualification run: {run_dir}")
     print(f"test id: {args.test_id}")
+    print(f"status: {status}")
+    if started_at:
+        print(f"started_at: {metadata['started_at']}")
+        print("physical-test lifecycle started; H01-H14 results remain NOT_RUN")
     return 0
 
 
