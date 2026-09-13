@@ -24,6 +24,10 @@ def evaluate(report: dict, *, max_http_errors: int, max_nmea_reconnects: int,
     reconnects = int(report.get("nmea_reconnects", 0))
     connections = int(report.get("nmea_connections", 0))
     failures: list[str] = []
+    if report.get("interrupted") is True:
+        failures.append("capture was interrupted before the requested capture window completed")
+    elif report.get("interrupted") not in (False, None):
+        failures.append("interrupted must be a boolean when present")
     if not math.isfinite(duration) or duration <= 0:
         failures.append(f"duration_s {duration!r} must be finite and > 0")
         live_rate = 0.0
@@ -62,6 +66,7 @@ def evaluate(report: dict, *, max_http_errors: int, max_nmea_reconnects: int,
         "http_errors": http_errors,
         "nmea_connections": connections,
         "nmea_reconnects": reconnects,
+        "interrupted": report.get("interrupted", False),
         "thresholds": {
             "max_http_errors": max_http_errors,
             "max_nmea_reconnects": max_nmea_reconnects,
