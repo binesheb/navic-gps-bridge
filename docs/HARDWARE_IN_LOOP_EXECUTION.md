@@ -15,7 +15,7 @@ Do not start H01-H14 until all of these are recorded in `RUN_METADATA.json`:
 - configured GNSS silence and recovery-cooldown limits;
 - geofence center/radius when H11-H13 are in scope.
 
-Use the scaffold first:
+Use the scaffold first. By default this creates a `NOT_STARTED` run:
 
 ```bash
 python tools/create_hardware_qualification_run.py evidence/bridge-01-receiver-a \
@@ -25,13 +25,24 @@ python tools/create_hardware_qualification_run.py evidence/bridge-01-receiver-a 
   --test-id receiver-a-2026-09-10
 ```
 
-A scaffolded `NOT_STARTED` result is not evidence of a pass. Immediately before the physical receiver baseline and H01-H14 execution, explicitly start the run:
+Immediately before the physical receiver baseline and H01-H14 execution, explicitly start the run:
 
 ```bash
 python tools/start_hardware_qualification_run.py evidence/bridge-01-receiver-a
 ```
 
-This changes only the lifecycle state to `IN_PROGRESS` and records the actual physical-test start timestamp. It does not change any H01-H14 result. The finalizer will reject a run that is still `NOT_STARTED`.
+For a new run where creation and physical-test start are intentionally the same operator action, the scaffold also supports:
+
+```bash
+python tools/create_hardware_qualification_run.py evidence/bridge-01-receiver-a \
+  --device bridge-01 \
+  --receiver "GNSS receiver model" \
+  --firmware-commit YOUR_FIRMWARE_COMMIT \
+  --test-id receiver-a-2026-09-10 \
+  --start
+```
+
+`--start` changes only the lifecycle state to `IN_PROGRESS` and records the physical-test start timestamp. It does not change any H01-H14 result. The finalizer rejects a run that is still `NOT_STARTED`.
 
 ## 2. Receiver-only baseline
 
