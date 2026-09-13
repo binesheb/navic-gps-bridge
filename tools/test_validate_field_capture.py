@@ -18,6 +18,7 @@ class ValidateFieldCaptureTests(unittest.TestCase):
             "nmea_sentences": 120,
             "nmea_connections": 1,
             "nmea_timeline_records": 121,
+            "nmea_timeline": "nmea_timeline.log",
             "nmea_port": 10110,
         }
         (root / "CAPTURE.json").write_text(json.dumps(payload), encoding="utf-8")
