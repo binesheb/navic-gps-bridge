@@ -28,6 +28,20 @@ def parse_bridge_host(base_url: str) -> str:
     return unquote(parsed.hostname)
 
 
+def install_stop_handlers(stop: threading.Event, interrupted: threading.Event):
+    """Install signal handlers that stop capture while preserving final reporting."""
+    def request_stop(signum, _frame):
+        interrupted.set()
+        stop.set()
+        print(f"capture interrupted by signal {signum}; preserving collected evidence")
+
+    previous_sigint = signal.getsignal(signal.SIGINT)
+    previous_sigterm = signal.getsignal(signal.SIGTERM)
+    signal.signal(signal.SIGINT, request_stop)
+    signal.signal(signal.SIGTERM, request_stop)
+    return previous_sigint, previous_sigterm
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("base_url")
@@ -73,16 +87,7 @@ def main(argv=None):
     nmea_disconnects = 0
     timeline_records = 0
     lock = threading.Lock()
-
-    def request_stop(signum, _frame):
-        interrupted.set()
-        stop.set()
-        print(f"capture interrupted by signal {signum}; preserving collected evidence")
-
-    previous_sigint = signal.getsignal(signal.SIGINT)
-    previous_sigterm = signal.getsignal(signal.SIGTERM)
-    signal.signal(signal.SIGINT, request_stop)
-    signal.signal(signal.SIGTERM, request_stop)
+    previous_sigint, previous_sigterm = install_stop_handlers(stop, interrupted)
 
     def timeline(event, payload=""):
         nonlocal timeline_records
