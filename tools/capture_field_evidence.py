@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import signal
 import socket
 import threading
@@ -26,6 +27,11 @@ def parse_bridge_host(base_url: str) -> str:
     # URL zone identifiers are percent-encoded (e.g. %25eth0); socket APIs
     # expect the decoded scope form (e.g. %eth0).
     return unquote(parsed.hostname)
+
+
+def calculate_observed_duration(start_monotonic: float, finish_monotonic: float) -> float:
+    """Return elapsed capture time using the monotonic clock, never wall time."""
+    return max(0.0, finish_monotonic - start_monotonic)
 
 
 def install_stop_handlers(stop: threading.Event, interrupted: threading.Event):
@@ -153,7 +159,7 @@ def main(argv=None):
             stop.wait(a.interval)
     stop.set(); t.join(timeout=max(1.0, a.timeout + a.reconnect_interval + 0.5))
     finished_unix = time.time()
-    observed_duration = max(0.0, finished_unix - wall_start)
+    observed_duration = calculate_observed_duration(start, time.monotonic())
     report = {"schema_version": 2, "base_url": a.base_url, "duration_s": a.duration, "observed_duration_s": round(observed_duration, 3),
               "interval_s": a.interval, "started_unix_s": wall_start, "finished_unix_s": finished_unix,
               "live_samples": samples, "http_errors": http_errors,
