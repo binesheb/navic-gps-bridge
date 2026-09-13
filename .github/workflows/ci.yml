@@ -131,7 +131,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v5
 
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -175,14 +175,14 @@ jobs:
         run: pio run -e esp32-s3-devkitc-1 -t size | tee firmware-size.txt
 
       - name: Upload firmware size report
-        uses: actions/upload-artifact@ea1654f8c5f2909d0464f50a6d15f7058bb2bd0d # v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: navic-gps-bridge-size-${{ github.sha }}
           if-no-files-found: error
           path: firmware-size.txt
 
       - name: Upload firmware build artifact
-        uses: actions/upload-artifact@ea1650f8f5f2909d0464f50a6d15f7058bb2bd0d # v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: navic-gps-bridge-firmware-${{ github.sha }}
           if-no-files-found: error
