@@ -100,6 +100,50 @@ class VerifyCaptureIntegrityTests(unittest.TestCase):
             self.assertEqual(result["status"], "FAIL")
             self.assertEqual(result["mismatches"], [{"name": "nmea.log", "reason": "missing_or_symlink"}])
 
+    def test_unsupported_entry_is_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_valid_run(root)
+            report = json.loads((root / "CAPTURE.json").read_text(encoding="utf-8"))
+            report["evidence_integrity"]["files"].append({
+                "name": "unexpected.bin", "bytes": 0, "sha256": "0" * 64,
+            })
+            (root / "CAPTURE.json").write_text(json.dumps(report), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "unsupported evidence entry"):
+                verify_capture_integrity.verify(root)
+
+    def test_self_file_entry_is_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_valid_run(root)
+            report = json.loads((root / "CAPTURE.json").read_text(encoding="utf-8"))
+            report["evidence_integrity"]["files"].append({
+                "name": "CAPTURE.json", "bytes": 0, "sha256": "0" * 64,
+            })
+            (root / "CAPTURE.json").write_text(json.dumps(report), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "unsupported evidence entry"):
+                verify_capture_integrity.verify(root)
+
+    def test_invalid_hash_metadata_is_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_valid_run(root)
+            report = json.loads((root / "CAPTURE.json").read_text(encoding="utf-8"))
+            report["evidence_integrity"]["files"][0]["sha256"] = "not-a-hash"
+            (root / "CAPTURE.json").write_text(json.dumps(report), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "invalid SHA-256 value"):
+                verify_capture_integrity.verify(root)
+
+    def test_boolean_byte_count_is_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_valid_run(root)
+            report = json.loads((root / "CAPTURE.json").read_text(encoding="utf-8"))
+            report["evidence_integrity"]["files"][0]["bytes"] = True
+            (root / "CAPTURE.json").write_text(json.dumps(report), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "invalid byte count"):
+                verify_capture_integrity.verify(root)
+
 
 if __name__ == "__main__":
     unittest.main()
