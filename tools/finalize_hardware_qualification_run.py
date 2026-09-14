@@ -4,10 +4,11 @@
 The operator checklist is the source of truth for H01-H14. This tool only
 changes a run from IN_PROGRESS to COMPLETE when every matrix row is explicitly
 marked PASS, the field-acceptance identity matches RUN_METADATA.json, all
-required evidence files are present and non-empty, and the evidence manifest
-verifies every stable physical evidence hash. Derived qualification records
-are re-verified from the archived evidence before completion. It also records
-the completion timestamp in RUN_METADATA.json.
+required evidence files are present and non-empty, the capture integrity
+record independently verifies the raw capture artifacts, and the evidence
+manifest verifies every stable physical evidence hash. Derived qualification
+records are re-verified from the archived evidence before completion. It also
+records the completion timestamp in RUN_METADATA.json.
 """
 
 from __future__ import annotations
@@ -20,10 +21,12 @@ from pathlib import Path
 
 try:
     from tools.create_hardware_qualification_run import MANIFEST_EVIDENCE_FILES
+    from tools.verify_capture_integrity import verify as verify_capture_integrity
     from tools.verify_evidence_manifest import verify as verify_evidence_manifest
     from tools.verify_recovery_report import verify as verify_recovery_report
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
     from create_hardware_qualification_run import MANIFEST_EVIDENCE_FILES
+    from verify_capture_integrity import verify as verify_capture_integrity
     from verify_evidence_manifest import verify as verify_evidence_manifest
     from verify_recovery_report import verify as verify_recovery_report
 
@@ -32,6 +35,9 @@ REQUIRED_FILES = (
     "nmea-verdict.json",
     "live.csv",
     "serial.log",
+    "CAPTURE.json",
+    "nmea.log",
+    "nmea_timeline.log",
     "EVIDENCE_MANIFEST.json",
     "recovery-qualification.json",
     "recovery-verification.json",
@@ -126,6 +132,19 @@ def validate_required_files(run_dir: Path) -> None:
         raise SystemExit("required evidence files are empty: " + ", ".join(empty))
 
 
+def validate_capture_integrity(run_dir: Path) -> None:
+    """Recompute capture hashes instead of trusting CAPTURE.json alone."""
+    try:
+        result = verify_capture_integrity(run_dir)
+    except (OSError, ValueError) as exc:
+        raise SystemExit("CAPTURE.json integrity verification failed: " + str(exc)) from exc
+    if result.get("status") != "PASS":
+        mismatches = result.get("mismatches", [])
+        detail = ", ".join(str(item.get("name", "unknown")) for item in mismatches if isinstance(item, dict))
+        suffix = f": {detail}" if detail else ""
+        raise SystemExit("capture integrity verification failed" + suffix)
+
+
 def validate_evidence_manifest(run_dir: Path) -> None:
     result = verify_evidence_manifest(run_dir / "EVIDENCE_MANIFEST.json")
     if result.get("passed") is not True:
@@ -176,6 +195,7 @@ def main() -> int:
         raise SystemExit("cannot finalize; matrix cases are not PASS: " + ", ".join(non_pass))
 
     validate_required_files(run_dir)
+    validate_capture_integrity(run_dir)
     validate_evidence_manifest(run_dir)
     validate_field_acceptance_identity(metadata, load_json(run_dir / "FIELD_ACCEPTANCE.json"))
     validate_recovery_evidence(run_dir)
@@ -191,6 +211,7 @@ def main() -> int:
 
     print(f"hardware qualification run finalized: {run_dir}")
     print("matrix: H01-H14 PASS")
+    print("capture integrity: independently verified")
     print("evidence: present, non-empty, regular files, and stable physical manifest verified")
     print("field acceptance identity: matches RUN_METADATA.json")
     print("recovery evidence: independently re-verified and stored verdict matches")
