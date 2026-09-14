@@ -6,6 +6,7 @@ import argparse
 import json
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -22,6 +23,8 @@ def parse_args(argv=None):
     parser.add_argument("--expect-product")
     parser.add_argument("--expect-location")
     parser.add_argument("--expect-interface")
+    parser.add_argument("--preflight-max-age", type=float, default=30.0,
+                        help="maximum age in seconds allowed for the preflight verdict")
     parser.add_argument("--duration", type=float, default=60.0)
     parser.add_argument("--interval", type=float, default=1.0)
     parser.add_argument("--nmea-port", type=int, default=10110)
@@ -32,7 +35,10 @@ def parse_args(argv=None):
     parser.add_argument("--max-nmea-reconnects", type=int, default=0)
     parser.add_argument("--min-live-rate-hz", type=float, default=0.5)
     parser.add_argument("--min-nmea-sentences", type=int, default=1)
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.preflight_max_age < 0:
+        parser.error("preflight-max-age must be >= 0")
+    return args
 
 
 def build_preflight_command(args, verdict_path: Path) -> list[str]:
@@ -59,6 +65,25 @@ def load_verdict(path: Path) -> dict:
     if not isinstance(result, dict):
         raise RuntimeError("preflight verdict must be a JSON object")
     return result
+
+
+def validate_verdict_freshness(verdict: dict, max_age_s: float, now: datetime | None = None) -> None:
+    """Reject verdicts that are missing, malformed, future-dated, or too old."""
+    checked_at = verdict.get("checked_at")
+    if not isinstance(checked_at, str) or not checked_at:
+        raise RuntimeError("preflight verdict is missing checked_at")
+    try:
+        checked = datetime.fromisoformat(checked_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise RuntimeError("preflight verdict checked_at is invalid") from exc
+    if checked.tzinfo is None:
+        raise RuntimeError("preflight verdict checked_at must include timezone")
+    current = now or datetime.now(timezone.utc)
+    age = (current - checked).total_seconds()
+    if age < 0:
+        raise RuntimeError("preflight verdict checked_at is in the future")
+    if age > max_age_s:
+        raise RuntimeError(f"preflight verdict is stale ({age:.1f}s > {max_age_s:.1f}s)")
 
 
 def build_capture_command(args) -> list[str]:
@@ -88,6 +113,7 @@ def main(argv=None) -> int:
 
     try:
         verdict = load_verdict(verdict_path)
+        validate_verdict_freshness(verdict, args.preflight_max_age)
     except RuntimeError as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -107,11 +133,13 @@ def main(argv=None) -> int:
             report["hardware_preflight"] = {
                 "verdict_file": verdict_path.name,
                 "passed": True,
+                "checked_at": verdict["checked_at"],
+                "max_age_s": args.preflight_max_age,
                 "port": args.port,
                 "identity": identity,
             }
             meta_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        except (OSError, json.JSONDecodeError, TypeError):
+        except (OSError, json.JSONDecodeError, TypeError, KeyError):
             return 1
     return capture.returncode
 
