@@ -8,6 +8,8 @@ import json
 from pathlib import Path
 
 REQUIRED_FILES = {"live.csv", "nmea.log", "nmea_timeline.log"}
+OPTIONAL_FILES = {"CAPTURE_QUALITY.json", "HARDWARE_PREFLIGHT.json"}
+ALLOWED_FILES = REQUIRED_FILES | OPTIONAL_FILES
 
 
 def sha256(path: Path) -> str:
@@ -48,16 +50,30 @@ def verify(run: Path) -> dict:
         name = entry.get("name")
         if not isinstance(name, str) or not name or Path(name).name != name:
             raise ValueError("evidence filename must be a single path component")
+        if name == "CAPTURE.json" or name not in ALLOWED_FILES:
+            raise ValueError(f"unsupported evidence entry: {name}")
         if name in names:
             raise ValueError(f"duplicate evidence entry: {name}")
         names.add(name)
+
+        expected_bytes = entry.get("bytes")
+        expected_hash = entry.get("sha256")
+        if isinstance(expected_bytes, bool) or not isinstance(expected_bytes, int) or expected_bytes < 0:
+            raise ValueError(f"invalid byte count for evidence entry: {name}")
+        if not isinstance(expected_hash, str) or len(expected_hash) != 64:
+            raise ValueError(f"invalid SHA-256 value for evidence entry: {name}")
+        try:
+            int(expected_hash, 16)
+        except ValueError as exc:
+            raise ValueError(f"invalid SHA-256 value for evidence entry: {name}") from exc
+
         path = run / name
         if path.is_symlink() or not path.is_file():
             mismatches.append({"name": name, "reason": "missing_or_symlink"})
             continue
         actual_bytes = path.stat().st_size
         actual_hash = sha256(path)
-        if entry.get("bytes") != actual_bytes or entry.get("sha256") != actual_hash:
+        if expected_bytes != actual_bytes or expected_hash != actual_hash:
             mismatches.append({"name": name, "reason": "hash_or_size_mismatch"})
 
     missing_required = sorted(REQUIRED_FILES - names)
