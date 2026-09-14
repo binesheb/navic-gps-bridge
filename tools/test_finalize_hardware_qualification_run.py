@@ -4,11 +4,13 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from finalize_hardware_qualification_run import (
     MANIFEST_REQUIRED_FILES,
     MATRIX_IDS,
     parse_matrix_results,
+    validate_capture_integrity,
     validate_evidence_manifest,
     validate_field_acceptance_identity,
 )
@@ -79,6 +81,49 @@ class FieldAcceptanceIdentityTests(unittest.TestCase):
                 self.acceptance(device_id="bridge-02"),
             )
         self.assertIn("device_id", str(context.exception))
+
+
+class CaptureIntegrityFinalizationTests(unittest.TestCase):
+    def test_accepts_independently_verified_capture(self):
+        with tempfile.TemporaryDirectory() as temp:
+            run_dir = Path(temp)
+            (run_dir / "CAPTURE.json").write_text("{}\n", encoding="utf-8")
+            with patch(
+                "finalize_hardware_qualification_run.verify_capture_integrity",
+                return_value={"status": "PASS", "checked_files": 3, "mismatches": []},
+            ) as verifier:
+                validate_capture_integrity(run_dir)
+            verifier.assert_called_once_with(run_dir)
+
+    def test_rejects_tampered_capture(self):
+        with tempfile.TemporaryDirectory() as temp:
+            run_dir = Path(temp)
+            (run_dir / "CAPTURE.json").write_text("{}\n", encoding="utf-8")
+            with patch(
+                "finalize_hardware_qualification_run.verify_capture_integrity",
+                return_value={
+                    "status": "FAIL",
+                    "checked_files": 3,
+                    "mismatches": [{"name": "live.csv", "reason": "hash_or_size_mismatch"}],
+                },
+            ):
+                with self.assertRaises(SystemExit) as context:
+                    validate_capture_integrity(run_dir)
+            self.assertIn("capture integrity verification failed", str(context.exception))
+            self.assertIn("live.csv", str(context.exception))
+
+    def test_rejects_verifier_errors(self):
+        with tempfile.TemporaryDirectory() as temp:
+            run_dir = Path(temp)
+            (run_dir / "CAPTURE.json").write_text("{}\n", encoding="utf-8")
+            with patch(
+                "finalize_hardware_qualification_run.verify_capture_integrity",
+                side_effect=ValueError("missing required evidence"),
+            ):
+                with self.assertRaises(SystemExit) as context:
+                    validate_capture_integrity(run_dir)
+            self.assertIn("CAPTURE.json integrity verification failed", str(context.exception))
+            self.assertIn("missing required evidence", str(context.exception))
 
 
 class EvidenceManifestCoverageTests(unittest.TestCase):
