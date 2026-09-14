@@ -105,6 +105,10 @@ jobs:
         working-directory: tools
         run: python -m unittest test_hardware_port_preflight.py
 
+      - name: Run capture integrity verifier self-tests
+        working-directory: tools
+        run: python -m unittest test_verify_capture_integrity.py
+
       - name: Compile embedded regression tests
         run: pio test -e esp32-s3-tests --without-uploading --without-testing --junit-output-path test-results.xml
 
