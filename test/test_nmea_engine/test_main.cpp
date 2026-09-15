@@ -4,6 +4,8 @@
 static const String VALID_RMC = "$GNRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*7C";
 static const String VALID_NAVIC_RMC = "$GIRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*73";
 static const String INVALID_RMC = "$GNRMC,123519,V,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*4D";
+static const String VALID_GGA = "$GNGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*59";
+static const String NO_FIX_GGA = "$GNGGA,123519,4807.038,N,01131.000,E,0,00,99.9,0.0,M,0.0,M,,*5B";
 
 void test_valid_checksum_is_accepted() {
   NMEAEngine engine;
@@ -105,6 +107,33 @@ void test_invalid_rmc_transitions_to_no_fix() {
   TEST_ASSERT_EQUAL_STRING("NO_FIX", engine.fixState(millis(), 3000).c_str());
 }
 
+void test_latest_position_sentence_wins_when_rmc_precedes_gga() {
+  NMEAEngine engine;
+  TEST_ASSERT_TRUE(engine.process(VALID_RMC));
+  TEST_ASSERT_TRUE(engine.process(NO_FIX_GGA));
+  TEST_ASSERT_FALSE(engine.data().fix);
+  TEST_ASSERT_FALSE(engine.data().valid);
+  TEST_ASSERT_EQUAL_STRING("NO_FIX", engine.fixState(millis(), 3000).c_str());
+}
+
+void test_latest_position_sentence_wins_when_gga_precedes_rmc() {
+  NMEAEngine engine;
+  TEST_ASSERT_TRUE(engine.process(NO_FIX_GGA));
+  TEST_ASSERT_TRUE(engine.process(VALID_RMC));
+  TEST_ASSERT_TRUE(engine.data().fix);
+  TEST_ASSERT_TRUE(engine.data().valid);
+  TEST_ASSERT_EQUAL_STRING("FIX_VALID", engine.fixState(millis(), 3000).c_str());
+}
+
+void test_valid_gga_can_establish_fix_and_updates_altitude() {
+  NMEAEngine engine;
+  TEST_ASSERT_TRUE(engine.process(VALID_GGA));
+  TEST_ASSERT_TRUE(engine.data().fix);
+  TEST_ASSERT_TRUE(engine.data().valid);
+  TEST_ASSERT_FLOAT_WITHIN(0.01, 545.4, engine.data().altitude);
+  TEST_ASSERT_EQUAL_STRING("FIX_VALID", engine.fixState(millis(), 3000).c_str());
+}
+
 void setup() {
   UNITY_BEGIN();
   RUN_TEST(test_valid_checksum_is_accepted);
@@ -122,6 +151,9 @@ void setup() {
   RUN_TEST(test_fix_freshness_expires_by_supplied_age);
   RUN_TEST(test_current_data_clears_stale_fix_flags);
   RUN_TEST(test_invalid_rmc_transitions_to_no_fix);
+  RUN_TEST(test_latest_position_sentence_wins_when_rmc_precedes_gga);
+  RUN_TEST(test_latest_position_sentence_wins_when_gga_precedes_rmc);
+  RUN_TEST(test_valid_gga_can_establish_fix_and_updates_altitude);
   UNITY_END();
 }
 
