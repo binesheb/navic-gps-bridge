@@ -16,6 +16,21 @@ The bridge exposes `GET /api/live` as the machine-readable runtime health endpoi
 
 `RECOVERING` takes precedence over the other states so monitoring clients do not misclassify an intentional recovery action as an ordinary stale stream.
 
+## Authoritative GNSS navigation state
+
+`fix_state` is the authoritative navigation state exposed by the live API. Consumers must use it instead of reconstructing navigation validity from the legacy `fix` field or from packet age alone.
+
+| `fix_state` | Meaning | Navigation fields |
+| --- | --- | --- |
+| `NO_DATA` | No accepted GNSS navigation data is available. | Not current; coordinates/speed are suppressed. |
+| `NO_FIX` | Current GNSS data exists, but no valid navigation fix is established. | Not current; coordinates/speed are suppressed. |
+| `FIX_VALID` | A valid, fresh navigation fix is established. | Current latitude/longitude/altitude/speed may be consumed. |
+| `FIX_STALE` | A previously valid navigation fix has exceeded the freshness window. | Not current; coordinates/speed are suppressed. |
+
+`source` identifies the normalized active position source. It changes only when an accepted position-bearing sentence establishes or updates the active source; non-position metadata such as GSV must not be treated as a source switch.
+
+External clients should treat `FIX_VALID` as the only state in which navigation coordinates and speed represent a current position. A stale or invalid position must never be promoted to current merely because numeric coordinate fields are present elsewhere in a compatibility payload.
+
 ## GNSS freshness
 
 - `data_available` is `true` after at least one GNSS packet has been received since boot.
@@ -39,12 +54,15 @@ When available, `gnss_health` reports receiver online/stale/fix state, data age,
 
 ## Consumer guidance
 
-For monitoring and alerting, prefer `status` as the coarse state, then inspect these signals for diagnosis:
+For monitoring and alerting, prefer `status` as the coarse bridge state, then inspect the authoritative GNSS state and supporting diagnostics:
 
-1. `gnss_health.receiver_online` / `gnss_health.stale` when the health snapshot is present.
-2. `data_available` to distinguish startup/no-data from a stale stream.
-3. `data_fresh` and `data_age_ms` for the latest packet age.
-4. `fix` for navigation validity.
-5. `geofence_inside`, `geofence_events`, and `geofence_last_event_age_ms` for boundary state/history.
+1. `fix_state` for current navigation validity.
+2. `source` for the active position source.
+3. `data_available` to distinguish startup/no-data from a stale stream.
+4. `data_fresh` and `data_age_ms` for packet age.
+5. `gnss_health.receiver_online` / `gnss_health.stale` when the health snapshot is present.
+6. `geofence_inside`, `geofence_events`, and `geofence_last_event_age_ms` for boundary state/history.
+
+The legacy `fix` field is retained only for compatibility. New consumers should not use it as the authoritative navigation-validity signal.
 
 Do not interpret `data_age_ms == 0` as a fresh packet by itself; check `data_available` and `data_fresh` because `0` also represents the pre-first-packet state.
