@@ -20,6 +20,20 @@ const char *overallStatus(const LiveDiagnosticsCounters &counters,
   }
   return "HEALTHY";
 }
+
+const char *fixState(const LiveDiagnosticsCounters &counters,
+                     bool hasData, bool dataFresh, bool fix) {
+  if (!hasData) {
+    return "NO_DATA";
+  }
+  if (counters.gnssHealth && counters.gnssHealth->stale) {
+    return "FIX_STALE";
+  }
+  if (!dataFresh) {
+    return "FIX_STALE";
+  }
+  return fix ? "FIX_VALID" : "NO_FIX";
+}
 }
 
 void buildLiveDiagnostics(const GnssData &data, const EventEngine &events,
@@ -29,6 +43,8 @@ void buildLiveDiagnostics(const GnssData &data, const EventEngine &events,
   const bool dataFresh = hasData && nowMs - counters.lastDataMs < 3000;
 
   document["fix"] = data.fix;
+  document["fix_state"] = fixState(counters, hasData, dataFresh, data.fix);
+  document["source"] = data.source;
   document["latitude"] = data.latitude;
   document["longitude"] = data.longitude;
   document["altitude"] = data.altitude;
