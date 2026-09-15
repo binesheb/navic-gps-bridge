@@ -64,6 +64,14 @@ void test_fix_is_fresh_immediately_after_valid_sentence() {
   TEST_ASSERT_EQUAL_STRING("FIX_VALID", engine.fixState(millis(), 3000).c_str());
 }
 
+void test_current_data_preserves_a_fresh_fix() {
+  NMEAEngine engine;
+  TEST_ASSERT_TRUE(engine.process(VALID_RMC));
+  GnssData snapshot = engine.currentData(millis(), 3000);
+  TEST_ASSERT_TRUE(snapshot.fix);
+  TEST_ASSERT_TRUE(snapshot.valid);
+}
+
 void test_fix_is_not_fresh_before_first_valid_fix() {
   NMEAEngine engine;
   TEST_ASSERT_FALSE(engine.fixFresh(millis(), 3000));
@@ -76,6 +84,16 @@ void test_fix_freshness_expires_by_supplied_age() {
   uint32_t now = millis();
   TEST_ASSERT_FALSE(engine.fixFresh(now + 3001, 3000));
   TEST_ASSERT_EQUAL_STRING("FIX_STALE", engine.fixState(now + 3001, 3000).c_str());
+}
+
+void test_current_data_clears_stale_fix_flags() {
+  NMEAEngine engine;
+  TEST_ASSERT_TRUE(engine.process(VALID_RMC));
+  uint32_t now = millis();
+  GnssData snapshot = engine.currentData(now + 3001, 3000);
+  TEST_ASSERT_FALSE(snapshot.fix);
+  TEST_ASSERT_FALSE(snapshot.valid);
+  TEST_ASSERT_EQUAL_STRING("GNSS", snapshot.source.c_str());
 }
 
 void test_invalid_rmc_transitions_to_no_fix() {
@@ -99,8 +117,10 @@ void setup() {
   RUN_TEST(test_invalid_sentence_does_not_replace_source);
   RUN_TEST(test_gsv_does_not_replace_active_fix_source);
   RUN_TEST(test_fix_is_fresh_immediately_after_valid_sentence);
+  RUN_TEST(test_current_data_preserves_a_fresh_fix);
   RUN_TEST(test_fix_is_not_fresh_before_first_valid_fix);
   RUN_TEST(test_fix_freshness_expires_by_supplied_age);
+  RUN_TEST(test_current_data_clears_stale_fix_flags);
   RUN_TEST(test_invalid_rmc_transitions_to_no_fix);
   UNITY_END();
 }

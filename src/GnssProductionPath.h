@@ -19,6 +19,9 @@ class GnssProductionPath {
   }
 
   const GnssData &data() const { return runtime_.data(); }
+  GnssData currentData(unsigned long nowMs) const {
+    return runtime_.currentData(nowMs);
+  }
   const GnssRuntime &runtime() const { return runtime_; }
   GnssRuntime &runtime() { return runtime_; }
 
