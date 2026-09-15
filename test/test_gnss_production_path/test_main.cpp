@@ -27,11 +27,23 @@ void test_raw_forwarding_preserves_sentence_when_compatibility_disabled() {
   TEST_ASSERT_EQUAL_STRING(RMC.c_str(), out.c_str());
 }
 
+void test_raw_data_is_explicit_and_current_data_expires() {
+  GnssProductionPath path(5000);
+  String out;
+  TEST_ASSERT_TRUE(path.process(RMC, 1000, false, out));
+
+  TEST_ASSERT_TRUE(path.rawData().fix);
+  GnssData stale = path.currentData(6100);
+  TEST_ASSERT_FALSE(stale.fix);
+  TEST_ASSERT_FALSE(stale.valid);
+}
+
 void setup() {
   UNITY_BEGIN();
   RUN_TEST(test_valid_sentence_updates_runtime_and_forwards_compatible_output);
   RUN_TEST(test_rejected_sentence_does_not_produce_forward_output);
   RUN_TEST(test_raw_forwarding_preserves_sentence_when_compatibility_disabled);
+  RUN_TEST(test_raw_data_is_explicit_and_current_data_expires);
   UNITY_END();
 }
 

@@ -18,7 +18,15 @@ class GnssProductionPath {
     return true;
   }
 
-  const GnssData &data() const { return runtime_.data(); }
+  // Safe consumer view: expired fixes are not exposed as current.
+  // Keep a stable reference for legacy production callers that bind data()
+  // with auto&, while refreshing the snapshot on every access.
+  const GnssData &data() const {
+    consumerSnapshot_ = runtime_.data();
+    return consumerSnapshot_;
+  }
+  // Explicit raw-state access for diagnostics that intentionally opt in.
+  const GnssData &rawData() const { return runtime_.rawData(); }
   GnssData currentData(unsigned long nowMs) const {
     return runtime_.currentData(nowMs);
   }
@@ -27,4 +35,5 @@ class GnssProductionPath {
 
  private:
   GnssRuntime runtime_;
+  mutable GnssData consumerSnapshot_;
 };
