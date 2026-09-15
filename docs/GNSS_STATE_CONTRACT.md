@@ -13,9 +13,22 @@ The bridge exposes a deterministic navigation state through the live diagnostics
 
 Consumers should use `fix_state` as the authoritative navigation state instead of reconstructing it from the legacy `fix`, `data_available`, and `data_fresh` fields.
 
+## RMC and GGA ordering
+
+RMC and GGA are both accepted position-bearing sentences. The normalized fix state follows **arrival order**: the most recently accepted RMC or GGA sentence owns the current `fix`/`valid` state and refreshes fix freshness when it reports a valid fix.
+
+- RMC updates position, speed, course, UTC fields, source, and fix validity.
+- GGA updates fix quality, satellite count, HDOP, altitude, source, and fix validity.
+- A valid RMC followed by a no-fix GGA therefore becomes `NO_FIX`.
+- A no-fix GGA followed by a valid RMC therefore becomes `FIX_VALID`.
+- GSV and other non-position sentences do not change the active position source or fix state.
+- Invalid/checksum-rejected sentences do not change normalized state.
+
+This makes mixed receiver streams deterministic without requiring consumers to infer precedence from message timing.
+
 ## `source`
 
-`source` identifies the normalized GNSS source carried by the current snapshot. Consumers should preserve this field when recording or displaying the origin of a position fix.
+`source` identifies the normalized GNSS source carried by the current position-bearing snapshot. Consumers should preserve this field when recording or displaying the origin of a position fix.
 
 ## Compatibility fields
 
