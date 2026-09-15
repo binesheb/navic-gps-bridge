@@ -57,11 +57,21 @@ void test_stale_fix_is_not_exposed_as_current_live_state() {
   TEST_ASSERT_EQUAL_STRING("GPS", stale.source.c_str());
 }
 
+void test_fix_state_contract_matches_current_data_freshness() {
+  GnssProductionPath path(5000);
+  String forward;
+  TEST_ASSERT_TRUE(path.process(VALID_RMC, 100, true, forward));
+
+  TEST_ASSERT_EQUAL_STRING("FIX_VALID", path.runtime().fixState(400).c_str());
+  TEST_ASSERT_EQUAL_STRING("FIX_STALE", path.runtime().fixState(5100).c_str());
+}
+
 void setup() {
   UNITY_BEGIN();
   RUN_TEST(test_production_sentence_flows_to_live_health);
   RUN_TEST(test_rejected_production_sentence_is_visible_without_refreshing_liveness);
   RUN_TEST(test_stale_fix_is_not_exposed_as_current_live_state);
+  RUN_TEST(test_fix_state_contract_matches_current_data_freshness);
   UNITY_END();
 }
 
