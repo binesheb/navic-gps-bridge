@@ -41,14 +41,16 @@ void buildLiveDiagnostics(const GnssData &data, const EventEngine &events,
                           unsigned long nowMs, JsonDocument &document) {
   const bool hasData = counters.lastDataMs != 0;
   const bool dataFresh = hasData && nowMs - counters.lastDataMs < 3000;
+  const char *state = fixState(counters, hasData, dataFresh, data.fix);
+  const bool navigationValid = strcmp(state, "FIX_VALID") == 0;
 
   document["fix"] = data.fix;
-  document["fix_state"] = fixState(counters, hasData, dataFresh, data.fix);
+  document["fix_state"] = state;
   document["source"] = data.source;
-  document["latitude"] = data.latitude;
-  document["longitude"] = data.longitude;
-  document["altitude"] = data.altitude;
-  document["speed_kmh"] = data.speedKmh;
+  document["latitude"] = navigationValid ? data.latitude : 0.0;
+  document["longitude"] = navigationValid ? data.longitude : 0.0;
+  document["altitude"] = navigationValid ? data.altitude : 0.0;
+  document["speed_kmh"] = navigationValid ? data.speedKmh : 0.0;
   document["satellites"] = data.satellites;
   document["hdop"] = data.hdop;
   document["last_nmea"] = data.lastSentence;
