@@ -13,7 +13,10 @@ class GnssRuntime {
       : staleAfterMs_(staleAfterMs), healthMonitor(staleAfterMs) {}
 
   bool ingest(const String &sentence, unsigned long nowMs);
-  const GnssData &data() const { return engine.data(); }
+  // Safe consumer view: fix validity reflects the current age of the data.
+  GnssData data() const { return currentData(millis()); }
+  // Explicit escape hatch for diagnostics that intentionally need raw state.
+  const GnssData &rawData() const { return engine.rawData(); }
   // Snapshot suitable for consumers that need fix validity to reflect age.
   GnssData currentData(unsigned long nowMs) const {
     return engine.currentData(nowMs, staleAfterMs_);
