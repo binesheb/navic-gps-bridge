@@ -18,6 +18,10 @@ class GnssRuntime {
   GnssData currentData(unsigned long nowMs) const {
     return engine.currentData(nowMs, staleAfterMs_);
   }
+  // Deterministic fix lifecycle for external consumers.
+  String fixState(unsigned long nowMs) const {
+    return engine.fixState(nowMs, staleAfterMs_);
+  }
   // Keep compatibility conversion behind the same production GNSS boundary so
   // callers do not need to reach into a second parser instance.
   String gpsCompatible(const String &sentence) const {
