@@ -4,8 +4,9 @@
 #include <Print.h>
 
 // Write a complete frame or fail without spinning forever when a transport
-// cannot currently accept more bytes. The caller owns reconnect/disconnect
-// policy; this helper only guarantees all-or-nothing frame delivery.
+// cannot currently accept more bytes. A timeout may leave a partial frame on
+// the transport, so callers must treat false as a failed frame and reconnect
+// or discard the affected stream as appropriate.
 inline bool writeComplete(Print& transport, const String& frame, uint32_t timeoutMs = 250) {
   const uint8_t* data = reinterpret_cast<const uint8_t*>(frame.c_str());
   const size_t total = frame.length();
