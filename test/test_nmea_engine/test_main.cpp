@@ -45,6 +45,20 @@ void test_navic_source_is_exposed_for_gi_talker() {
   TEST_ASSERT_EQUAL_STRING("NavIC", engine.data().source.c_str());
 }
 
+void test_navic_talker_is_converted_to_gps_for_compatibility() {
+  NMEAEngine engine;
+  TEST_ASSERT_EQUAL_STRING(
+      "$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A",
+      engine.gpsCompatible(VALID_NAVIC_RMC).c_str());
+}
+
+void test_gnss_talker_is_converted_to_gps_for_compatibility() {
+  NMEAEngine engine;
+  TEST_ASSERT_EQUAL_STRING(
+      "$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*7C",
+      engine.gpsCompatible(VALID_RMC).c_str());
+}
+
 void test_invalid_sentence_does_not_replace_source() {
   NMEAEngine engine;
   TEST_ASSERT_TRUE(engine.process(VALID_NAVIC_RMC));
@@ -143,6 +157,8 @@ void setup() {
   RUN_TEST(test_bad_checksum_is_rejected);
   RUN_TEST(test_gnss_source_is_exposed_for_mixed_talker);
   RUN_TEST(test_navic_source_is_exposed_for_gi_talker);
+  RUN_TEST(test_navic_talker_is_converted_to_gps_for_compatibility);
+  RUN_TEST(test_gnss_talker_is_converted_to_gps_for_compatibility);
   RUN_TEST(test_invalid_sentence_does_not_replace_source);
   RUN_TEST(test_gsv_does_not_replace_active_fix_source);
   RUN_TEST(test_fix_is_fresh_immediately_after_valid_sentence);
