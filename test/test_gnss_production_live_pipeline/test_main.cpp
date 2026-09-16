@@ -7,6 +7,8 @@ static const char *VALID_RMC =
     "$GNRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*75";
 static const char *INVALID_RMC =
     "$GNRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*00";
+static const char *TRAILING_DATA_RMC =
+    "$GNRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*75JUNK";
 
 void test_production_sentence_flows_to_live_health() {
   GnssProductionPath path(5000);
@@ -86,6 +88,23 @@ void test_fix_state_contract_matches_current_data_freshness() {
   TEST_ASSERT_EQUAL_STRING("FIX_STALE", path.runtime().fixState(5100).c_str());
 }
 
+void test_trailing_data_after_checksum_is_rejected() {
+  GnssProductionPath path(5000);
+  String forward;
+  TEST_ASSERT_FALSE(path.process(TRAILING_DATA_RMC, 100, true, forward));
+  TEST_ASSERT_EQUAL_UINT32(0, path.runtime().rawData().fix);
+}
+
+void test_crlf_terminated_sentence_remains_accepted() {
+  GnssProductionPath path(5000);
+  String forward;
+  String sentence = String(VALID_RMC) + "\r\n";
+  TEST_ASSERT_TRUE(path.process(sentence, 100, true, forward));
+  TEST_ASSERT_TRUE(forward.startsWith("$GPRMC,"));
+  TEST_ASSERT_TRUE(forward.indexOf('\r') < 0);
+  TEST_ASSERT_TRUE(forward.indexOf('\n') < 0);
+}
+
 void setup() {
   UNITY_BEGIN();
   RUN_TEST(test_production_sentence_flows_to_live_health);
@@ -93,6 +112,8 @@ void setup() {
   RUN_TEST(test_rejected_rmc_clears_current_fix_without_refreshing_coordinates);
   RUN_TEST(test_stale_fix_is_not_exposed_as_current_live_state);
   RUN_TEST(test_fix_state_contract_matches_current_data_freshness);
+  RUN_TEST(test_trailing_data_after_checksum_is_rejected);
+  RUN_TEST(test_crlf_terminated_sentence_remains_accepted);
   UNITY_END();
 }
 
