@@ -9,4 +9,4 @@ bool NMEAEngine::process(const String&l){if(!checksumValid(l)||l.length()<7)retu
 bool NMEAEngine::fixFresh(uint32_t nowMs,uint32_t maxAgeMs)const{return state.fix&&(uint32_t)(nowMs-lastFixMillis)<=maxAgeMs;}
 String NMEAEngine::fixState(uint32_t nowMs,uint32_t maxAgeMs)const{if(!state.fix)return "NO_FIX";return fixFresh(nowMs,maxAgeMs)?"FIX_VALID":"FIX_STALE";}
 GnssData NMEAEngine::currentData(uint32_t nowMs,uint32_t maxAgeMs)const{GnssData snapshot=state;if(state.fix&&!fixFresh(nowMs,maxAgeMs)){snapshot.fix=false;snapshot.valid=false;}return snapshot;}
-String NMEAEngine::gpsCompatible(const String&l)const{int x=l.indexOf('*');String p=x>=0?l.substring(1,x):l.substring(1);if(p.startsWith("GN")||p.startsWith("GI"))p="GP"+p.substring(2);uint8_t s=0;for(int i=0;i<p.length();i++)s^=p[i];char b[4];snprintf(b,4,"*%02X",s);return "$"+p+String(b);}
+String NMEAEngine::gpsCompatible(const String&l)const{if(!checksumValid(l)||l.length()<7)return "";int x=l.indexOf('*');String p=l.substring(1,x);if(p.startsWith("GN")||p.startsWith("GI"))p="GP"+p.substring(2);uint8_t s=0;for(int i=0;i<p.length();i++)s^=p[i];char b[4];snprintf(b,4,"*%02X",s);return "$"+p+String(b);}
