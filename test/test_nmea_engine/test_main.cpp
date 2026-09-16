@@ -4,7 +4,13 @@
 static const String VALID_RMC = "$GNRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*7C";
 static const String VALID_NAVIC_RMC = "$GIRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*73";
 static const String INVALID_RMC = "$GNRMC,123519,V,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*4D";
+static const String INVALID_EMPTY_RMC = "$GNRMC,123519,A,,N,01131.000,E,022.4,084.4,230394,003.1,W*6A";
+static const String INVALID_HEMISPHERE_RMC = "$GNRMC,123519,A,4807.038,X,01131.000,E,022.4,084.4,230394,003.1,W*62";
+static const String INVALID_RANGE_RMC = "$GNRMC,123519,A,9100.000,N,01131.000,E,022.4,084.4,230394,003.1,W*7C";
+static const String VALID_ZERO_RMC = "$GNRMC,123519,A,0000.000,N,00000.000,E,000.0,000.0,230394,000.0,W*78";
 static const String VALID_GGA = "$GNGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*59";
+static const String INVALID_EMPTY_GGA = "$GNGGA,123519,,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47";
+static const String INVALID_HEMISPHERE_GGA = "$GNGGA,123519,4807.038,N,01131.000,X,1,08,0.9,545.4,M,46.9,M,,*44";
 static const String NO_FIX_GGA = "$GNGGA,123519,4807.038,N,01131.000,E,0,00,99.9,0.0,M,0.0,M,,*5B";
 
 void test_valid_checksum_is_accepted() {
@@ -121,6 +127,52 @@ void test_invalid_rmc_transitions_to_no_fix() {
   TEST_ASSERT_EQUAL_STRING("NO_FIX", engine.fixState(millis(), 3000).c_str());
 }
 
+void test_malformed_rmc_position_is_rejected_without_refreshing_fix() {
+  NMEAEngine engine;
+  TEST_ASSERT_TRUE(engine.process(VALID_RMC));
+  uint32_t now = millis();
+  TEST_ASSERT_FALSE(engine.process(INVALID_EMPTY_RMC));
+  TEST_ASSERT_FALSE(engine.data().fix);
+  TEST_ASSERT_FALSE(engine.data().valid);
+  TEST_ASSERT_FALSE(engine.fixFresh(now + 3001, 3000));
+}
+
+void test_invalid_rmc_hemisphere_is_rejected() {
+  NMEAEngine engine;
+  TEST_ASSERT_FALSE(engine.process(INVALID_HEMISPHERE_RMC));
+  TEST_ASSERT_FALSE(engine.data().fix);
+  TEST_ASSERT_FALSE(engine.data().valid);
+}
+
+void test_out_of_range_rmc_coordinate_is_rejected() {
+  NMEAEngine engine;
+  TEST_ASSERT_FALSE(engine.process(INVALID_RANGE_RMC));
+  TEST_ASSERT_FALSE(engine.data().fix);
+  TEST_ASSERT_FALSE(engine.data().valid);
+}
+
+void test_zero_rmc_coordinates_are_valid() {
+  NMEAEngine engine;
+  TEST_ASSERT_TRUE(engine.process(VALID_ZERO_RMC));
+  TEST_ASSERT_TRUE(engine.data().fix);
+  TEST_ASSERT_FLOAT_WITHIN(0.0001, 0.0, engine.data().latitude);
+  TEST_ASSERT_FLOAT_WITHIN(0.0001, 0.0, engine.data().longitude);
+}
+
+void test_malformed_gga_position_is_rejected() {
+  NMEAEngine engine;
+  TEST_ASSERT_FALSE(engine.process(INVALID_EMPTY_GGA));
+  TEST_ASSERT_FALSE(engine.data().fix);
+  TEST_ASSERT_FALSE(engine.data().valid);
+}
+
+void test_invalid_gga_hemisphere_is_rejected() {
+  NMEAEngine engine;
+  TEST_ASSERT_FALSE(engine.process(INVALID_HEMISPHERE_GGA));
+  TEST_ASSERT_FALSE(engine.data().fix);
+  TEST_ASSERT_FALSE(engine.data().valid);
+}
+
 void test_latest_position_sentence_wins_when_rmc_precedes_gga() {
   NMEAEngine engine;
   TEST_ASSERT_TRUE(engine.process(VALID_RMC));
@@ -167,6 +219,12 @@ void setup() {
   RUN_TEST(test_fix_freshness_expires_by_supplied_age);
   RUN_TEST(test_current_data_clears_stale_fix_flags);
   RUN_TEST(test_invalid_rmc_transitions_to_no_fix);
+  RUN_TEST(test_malformed_rmc_position_is_rejected_without_refreshing_fix);
+  RUN_TEST(test_invalid_rmc_hemisphere_is_rejected);
+  RUN_TEST(test_out_of_range_rmc_coordinate_is_rejected);
+  RUN_TEST(test_zero_rmc_coordinates_are_valid);
+  RUN_TEST(test_malformed_gga_position_is_rejected);
+  RUN_TEST(test_invalid_gga_hemisphere_is_rejected);
   RUN_TEST(test_latest_position_sentence_wins_when_rmc_precedes_gga);
   RUN_TEST(test_latest_position_sentence_wins_when_gga_precedes_rmc);
   RUN_TEST(test_valid_gga_can_establish_fix_and_updates_altitude);
