@@ -7,6 +7,9 @@ static const String INVALID_RMC = "$GNRMC,123519,V,4807.038,N,01131.000,E,022.4,
 static const String INVALID_EMPTY_RMC = "$GNRMC,123519,A,,N,01131.000,E,022.4,084.4,230394,003.1,W*6A";
 static const String INVALID_HEMISPHERE_RMC = "$GNRMC,123519,A,4807.038,X,01131.000,E,022.4,084.4,230394,003.1,W*62";
 static const String INVALID_RANGE_RMC = "$GNRMC,123519,A,9100.000,N,01131.000,E,022.4,084.4,230394,003.1,W*7C";
+static const String INVALID_LAT_WIDTH_RMC = "$GNRMC,123519,A,807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*40";
+static const String INVALID_LON_WIDTH_RMC = "$GNRMC,123519,A,4807.038,N,1131.000,E,022.4,084.4,230394,003.1,W*44";
+static const String INVALID_MINUTE_WIDTH_RMC = "$GNRMC,123519,A,480.038,N,01131.000,E,022.4,084.4,230394,003.1,W*43";
 static const String VALID_ZERO_RMC = "$GNRMC,123519,A,0000.000,N,00000.000,E,000.0,000.0,230394,000.0,W*78";
 static const String VALID_GGA = "$GNGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*59";
 static const String INVALID_EMPTY_GGA = "$GNGGA,123519,,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47";
@@ -151,6 +154,15 @@ void test_out_of_range_rmc_coordinate_is_rejected() {
   TEST_ASSERT_FALSE(engine.data().valid);
 }
 
+void test_fixed_width_rmc_fields_are_enforced() {
+  NMEAEngine engine;
+  TEST_ASSERT_FALSE(engine.process(INVALID_LAT_WIDTH_RMC));
+  TEST_ASSERT_FALSE(engine.process(INVALID_LON_WIDTH_RMC));
+  TEST_ASSERT_FALSE(engine.process(INVALID_MINUTE_WIDTH_RMC));
+  TEST_ASSERT_FALSE(engine.data().fix);
+  TEST_ASSERT_FALSE(engine.data().valid);
+}
+
 void test_zero_rmc_coordinates_are_valid() {
   NMEAEngine engine;
   TEST_ASSERT_TRUE(engine.process(VALID_ZERO_RMC));
@@ -222,6 +234,7 @@ void setup() {
   RUN_TEST(test_malformed_rmc_position_is_rejected_without_refreshing_fix);
   RUN_TEST(test_invalid_rmc_hemisphere_is_rejected);
   RUN_TEST(test_out_of_range_rmc_coordinate_is_rejected);
+  RUN_TEST(test_fixed_width_rmc_fields_are_enforced);
   RUN_TEST(test_zero_rmc_coordinates_are_valid);
   RUN_TEST(test_malformed_gga_position_is_rejected);
   RUN_TEST(test_invalid_gga_hemisphere_is_rejected);
