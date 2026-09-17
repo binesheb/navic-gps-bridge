@@ -4,6 +4,7 @@
 #include "EventDiagnostics.h"
 #include "GnssHealth.h"
 #include "GnssRecoveryMonitor.h"
+#include "TransportHealth.h"
 
 struct LiveDiagnosticsCounters {
   unsigned long packets = 0;
@@ -15,6 +16,7 @@ struct LiveDiagnosticsCounters {
   unsigned long geofenceLastEventMs = 0;
   const GnssHealth *gnssHealth = nullptr;
   const GnssRecoveryStatus *gnssRecovery = nullptr;
+  const TransportHealth *transportHealth = nullptr;
 };
 
 void buildLiveDiagnostics(const GnssData &data, const EventEngine &events,
