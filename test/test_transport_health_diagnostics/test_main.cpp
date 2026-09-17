@@ -15,6 +15,8 @@ static void test_json_reports_ready_state_and_zero_ages() {
   TEST_ASSERT_EQUAL_UINT32(0, target["writes"] | 99);
   TEST_ASSERT_EQUAL_UINT32(0, target["failures"] | 99);
   TEST_ASSERT_EQUAL_UINT32(0, target["recoveries"] | 99);
+  TEST_ASSERT_FALSE(target["has_failure"] | true);
+  TEST_ASSERT_FALSE(target["has_recovery"] | true);
   TEST_ASSERT_EQUAL_UINT32(0, target["failure_age_ms"] | 99);
   TEST_ASSERT_EQUAL_UINT32(0, target["recovery_age_ms"] | 99);
 }
@@ -31,6 +33,8 @@ static void test_json_reports_failure_and_elapsed_age() {
   TEST_ASSERT_FALSE(target["ready"] | true);
   TEST_ASSERT_EQUAL_UINT32(1, target["writes"] | 99);
   TEST_ASSERT_EQUAL_UINT32(1, target["failures"] | 99);
+  TEST_ASSERT_TRUE(target["has_failure"] | false);
+  TEST_ASSERT_FALSE(target["has_recovery"] | true);
   TEST_ASSERT_EQUAL_UINT32(350, target["failure_age_ms"] | 0);
 }
 
@@ -44,6 +48,8 @@ static void test_json_reports_recovery_and_elapsed_age() {
   appendTransportHealth(target, health, 500);
   TEST_ASSERT_EQUAL_STRING("READY", target["state"] | "");
   TEST_ASSERT_TRUE(target["ready"] | false);
+  TEST_ASSERT_TRUE(target["has_failure"] | false);
+  TEST_ASSERT_TRUE(target["has_recovery"] | false);
   TEST_ASSERT_EQUAL_UINT32(200, target["failure_age_ms"] | 0);
   TEST_ASSERT_EQUAL_UINT32(200, target["recovery_age_ms"] | 0);
   TEST_ASSERT_EQUAL_UINT32(1, target["recoveries"] | 0);
@@ -74,6 +80,19 @@ static void test_elapsed_age_handles_millis_wraparound() {
   TEST_ASSERT_EQUAL_UINT32(0x30UL, target["failure_age_ms"] | 0U);
 }
 
+static void test_zero_timestamp_event_is_still_reported() {
+  TransportHealth health;
+  health.reset();
+  health.recordWriteFailure(0);
+
+  JsonDocument doc;
+  JsonObject target = doc.to<JsonObject>();
+  appendTransportHealth(target, health, 25);
+
+  TEST_ASSERT_TRUE(target["has_failure"] | false);
+  TEST_ASSERT_EQUAL_UINT32(25, target["failure_age_ms"] | 0U);
+}
+
 void setup() {
   UNITY_BEGIN();
   RUN_TEST(test_json_reports_ready_state_and_zero_ages);
@@ -81,6 +100,7 @@ void setup() {
   RUN_TEST(test_json_reports_recovery_and_elapsed_age);
   RUN_TEST(test_failed_transport_blocks_writes_until_recovery);
   RUN_TEST(test_elapsed_age_handles_millis_wraparound);
+  RUN_TEST(test_zero_timestamp_event_is_still_reported);
   UNITY_END();
 }
 void loop() {}
