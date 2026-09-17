@@ -10,7 +10,6 @@ static void test_json_reports_ready_state_and_zero_ages() {
   JsonDocument doc;
   JsonObject target = doc.to<JsonObject>();
   appendTransportHealth(target, health, 500);
-
   TEST_ASSERT_EQUAL_STRING("READY", target["state"] | "");
   TEST_ASSERT_TRUE(target["ready"] | false);
   TEST_ASSERT_EQUAL_UINT32(0, target["writes"] | 99);
@@ -25,11 +24,9 @@ static void test_json_reports_failure_and_elapsed_age() {
   health.reset();
   health.recordWriteSuccess();
   health.recordWriteFailure(100);
-
   JsonDocument doc;
   JsonObject target = doc.to<JsonObject>();
   appendTransportHealth(target, health, 450);
-
   TEST_ASSERT_EQUAL_STRING("FAILED", target["state"] | "");
   TEST_ASSERT_FALSE(target["ready"] | true);
   TEST_ASSERT_EQUAL_UINT32(1, target["writes"] | 99);
@@ -42,11 +39,9 @@ static void test_json_reports_recovery_and_elapsed_age() {
   health.reset();
   health.recordWriteFailure(100);
   health.recordRecovery(300);
-
   JsonDocument doc;
   JsonObject target = doc.to<JsonObject>();
   appendTransportHealth(target, health, 500);
-
   TEST_ASSERT_EQUAL_STRING("READY", target["state"] | "");
   TEST_ASSERT_TRUE(target["ready"] | false);
   TEST_ASSERT_EQUAL_UINT32(200, target["failure_age_ms"] | 0);
@@ -61,5 +56,4 @@ void setup() {
   RUN_TEST(test_json_reports_recovery_and_elapsed_age);
   UNITY_END();
 }
-
 void loop() {}
