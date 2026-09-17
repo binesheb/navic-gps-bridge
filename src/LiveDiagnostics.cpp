@@ -90,5 +90,26 @@ void buildLiveDiagnostics(const GnssData &data, const EventEngine &events,
     recovery["cooldown_ms"] = counters.gnssRecovery->cooldownMs;
   }
 
+  if (counters.transportHealth) {
+    JsonObject transport = document["transport_health"].to<JsonObject>();
+    transport["state"] = counters.transportHealth->ready() ? "READY" : "FAILED";
+    transport["ready"] = counters.transportHealth->ready();
+    transport["writes"] = counters.transportHealth->writes();
+    transport["failures"] = counters.transportHealth->failures();
+    transport["recoveries"] = counters.transportHealth->recoveries();
+    const bool hasFailure = counters.transportHealth->failures() != 0;
+    const bool hasRecovery = counters.transportHealth->recoveries() != 0;
+    transport["has_failure"] = hasFailure;
+    transport["has_recovery"] = hasRecovery;
+    transport["last_failure_ms"] = counters.transportHealth->lastFailureMs();
+    transport["last_recovery_ms"] = counters.transportHealth->lastRecoveryMs();
+    transport["failure_age_ms"] = hasFailure
+        ? nowMs - counters.transportHealth->lastFailureMs()
+        : 0;
+    transport["recovery_age_ms"] = hasRecovery
+        ? nowMs - counters.transportHealth->lastRecoveryMs()
+        : 0;
+  }
+
   appendEventDiagnostics(events, document);
 }
