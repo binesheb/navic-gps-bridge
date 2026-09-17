@@ -134,6 +134,50 @@ void test_live_diagnostics_combines_runtime_and_event_state() {
   TEST_ASSERT_EQUAL_UINT(10000, doc["gnss_recovery"]["silence_ms"].as<unsigned long>());
 }
 
+void test_live_diagnostics_reports_transport_health() {
+  GnssData data = sampleData();
+  EventEngine events;
+  LiveDiagnosticsCounters counters;
+  counters.lastDataMs = 1000;
+
+  TransportHealth health;
+  health.reset();
+  health.recordWriteSuccess();
+  health.recordWriteFailure(1200);
+  counters.transportHealth = &health;
+
+  JsonDocument doc;
+  buildLiveDiagnostics(data, events, counters, 1700, doc);
+
+  TEST_ASSERT_TRUE(doc["transport_health"].is<JsonObject>());
+  TEST_ASSERT_EQUAL_STRING("FAILED", doc["transport_health"]["state"].as<const char*>());
+  TEST_ASSERT_FALSE(doc["transport_health"]["ready"].as<bool>());
+  TEST_ASSERT_EQUAL_UINT(1, doc["transport_health"]["writes"].as<unsigned long>());
+  TEST_ASSERT_EQUAL_UINT(1, doc["transport_health"]["failures"].as<unsigned long>());
+  TEST_ASSERT_EQUAL_UINT(0, doc["transport_health"]["recoveries"].as<unsigned long>());
+  TEST_ASSERT_TRUE(doc["transport_health"]["has_failure"].as<bool>());
+  TEST_ASSERT_FALSE(doc["transport_health"]["has_recovery"].as<bool>());
+  TEST_ASSERT_EQUAL_UINT(500, doc["transport_health"]["failure_age_ms"].as<unsigned long>());
+}
+
+void test_live_diagnostics_transport_health_zero_timestamp_is_present() {
+  GnssData data = sampleData();
+  EventEngine events;
+  LiveDiagnosticsCounters counters;
+  counters.lastDataMs = 1000;
+
+  TransportHealth health;
+  health.reset();
+  health.recordWriteFailure(0);
+  counters.transportHealth = &health;
+
+  JsonDocument doc;
+  buildLiveDiagnostics(data, events, counters, 25, doc);
+
+  TEST_ASSERT_TRUE(doc["transport_health"]["has_failure"].as<bool>());
+  TEST_ASSERT_EQUAL_UINT(25, doc["transport_health"]["failure_age_ms"].as<unsigned long>());
+}
+
 void test_live_diagnostics_marks_stale_data() {
   GnssData data;
   EventEngine events;
@@ -180,6 +224,8 @@ void setup() {
   RUN_TEST(test_live_diagnostics_age_is_rollover_safe);
   RUN_TEST(test_live_diagnostics_distinguishes_no_data_from_stale_data);
   RUN_TEST(test_live_diagnostics_combines_runtime_and_event_state);
+  RUN_TEST(test_live_diagnostics_reports_transport_health);
+  RUN_TEST(test_live_diagnostics_transport_health_zero_timestamp_is_present);
   RUN_TEST(test_live_diagnostics_marks_stale_data);
   RUN_TEST(test_live_diagnostics_does_not_report_fresh_before_first_packet);
   RUN_TEST(test_live_diagnostics_handles_millis_rollover_for_event_age);
