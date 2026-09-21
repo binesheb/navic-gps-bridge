@@ -79,6 +79,21 @@ The device web API and OTA firmware upload can be protected with the built-in we
 
 The OTA endpoint now uses the same authentication guard as the other maintenance endpoints. Keep `webAuthEnabled` enabled when OTA is used on a shared or untrusted network; do not treat the default development configuration as a production security boundary.
 
+### Safe firmware update paths
+
+There are two supported update paths. For a bench/development device, build and flash from a trusted workstation with PlatformIO:
+
+```bash
+pio run -e esp32-s3-devkitc-1
+pio run -e esp32-s3-devkitc-1 -t upload
+```
+
+For a network-connected device, use the authenticated OTA maintenance endpoint only after enabling `webAuthEnabled` and setting a strong unique password. Deploy only a firmware image built from a reviewed repository commit. Keep the existing device configuration and a known-good firmware image available so a failed OTA deployment can be recovered locally.
+
+The repository CI build publishes `firmware.bin`, `bootloader.bin`, `partitions.bin`, `SHA256SUMS`, and `BUILD_INFO.txt`; the bundle verifier checks the recorded SHA-256 digests, sizes, repository identity, commit, and build target before the artifact is accepted. CI artifacts are not themselves an authorization mechanism for OTA deployment.
+
+Automatic unattended firmware installation is intentionally not enabled. Physical hardware, network reachability, authentication, and recovery access are deployment-specific concerns, so firmware promotion remains an explicit operator action.
+
 ## TCP NMEA clients
 
 The bridge accepts up to four simultaneous TCP NMEA consumers. If all four output slots are occupied, additional connections are explicitly closed instead of being left pending indefinitely. This keeps the output path bounded for unattended deployments.
