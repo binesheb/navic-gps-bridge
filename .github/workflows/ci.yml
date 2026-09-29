@@ -117,7 +117,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: navic-gps-bridge-test-results-${{ github.sha }}
           if-no-files-found: warn
@@ -174,14 +174,14 @@ jobs:
         run: pio run -e esp32-s3-devkitc-1 -t size | tee firmware-size.txt
 
       - name: Upload firmware size report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: navic-gps-bridge-size-${{ github.sha }}
           if-no-files-found: error
           path: firmware-size.txt
 
       - name: Upload firmware build artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: navic-gps-bridge-firmware-${{ github.sha }}
           if-no-files-found: error
