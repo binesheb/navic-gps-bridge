@@ -24,6 +24,7 @@ ESP32-S3 based universal GNSS bridge for NavIC-capable and multi-GNSS receivers.
 - OTA firmware update support
 - Per-device Wi-Fi AP credentials derived from the ESP32-S3 eFuse MAC
 - Bounded TCP client handling with graceful rejection when all four output slots are occupied
+- Per-output transport failure tracking, bounded complete-frame writes, and fresh-GNSS-frame gating after recovery
 
 ## Hardware
 - ESP32-S3

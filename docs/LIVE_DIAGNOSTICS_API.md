@@ -52,6 +52,17 @@ Clients should use `uptime_ms` together with the event timestamps rather than tr
 
 When available, `gnss_health` reports receiver online/stale/fix state, data age, and accepted/rejected sentence counters. `gnss_recovery` reports recovery monitoring state, attempts, last recovery time, silence, and cooldown values.
 
+## Downstream transport health and recovery
+
+The `/api/live` response includes output-path health in addition to GNSS receiver health:
+
+- `transport_health` describes the serial `GPSOut` path. `writes` counts complete frames only; `failures` counts write timeouts; `recoveries` counts successful UART reinitializations after a timeout.
+- `gps_out_output_allowed` reports whether the serial output lifecycle currently permits a frame.
+- `gps_out_waiting_for_fresh_frame` is true after UART recovery until the next accepted GNSS sentence is processed.
+- `tcp_transports` contains one entry per bounded TCP client slot. Each entry reports whether the slot has been used, whether its client is connected, whether output is allowed, whether a fresh frame is still required, and a nested `health` object with write/failure/recovery counters and elapsed ages.
+
+A TCP write timeout can leave a partial NMEA sentence on the stream, so the affected client is closed immediately. Its slot remains failed until a new client is accepted. Reconnection is recorded as recovery, but output remains gated until the next accepted GNSS sentence. A serial write timeout causes the output UART to be reinitialized and similarly requires the next accepted GNSS sentence before output resumes. These counters are runtime diagnostics, not a substitute for physical disconnect/reconnect qualification.
+
 ## Consumer guidance
 
 For monitoring and alerting, prefer `status` as the coarse bridge state, then inspect the authoritative GNSS state and supporting diagnostics:
