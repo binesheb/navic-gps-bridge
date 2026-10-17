@@ -56,7 +56,7 @@ When available, `gnss_health` reports receiver online/stale/fix state, data age,
 
 The `/api/live` response includes output-path health in addition to GNSS receiver health:
 
-- `transport_health` describes the serial `GPSOut` path. `writes` counts complete frames only; `failures` counts write timeouts; `recoveries` counts successful UART reinitializations after a timeout.
+- `transport_health` describes the serial `GPSOut` path. `writes` counts complete frames only; `failures` counts write timeouts; `recoveries` counts UART reinitialization transitions after a timeout; it does not prove electrical or physical output recovery.
 - `gps_out_output_allowed` reports whether the serial output lifecycle currently permits a frame.
 - `gps_out_waiting_for_fresh_frame` is true after UART recovery until the next accepted GNSS sentence is processed.
 - `tcp_transports` contains one entry per bounded TCP client slot. Each entry reports whether the slot has been used, whether its client is connected, whether output is allowed, whether a fresh frame is still required, and a nested `health` object with write/failure/recovery counters and elapsed ages.
