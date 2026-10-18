@@ -14,12 +14,15 @@ inline bool writeComplete(Print& transport, const String& frame, uint32_t timeou
   const uint32_t start = millis();
 
   while (offset < total) {
+    if ((uint32_t)(millis() - start) >= timeoutMs) return false;
+
     const size_t written = transport.write(data + offset, total - offset);
     if (written > 0) {
       offset += written;
+      if (offset < total && (uint32_t)(millis() - start) >= timeoutMs) return false;
       continue;
     }
-    if ((uint32_t)(millis() - start) >= timeoutMs) return false;
+
     yield();
   }
   return true;
