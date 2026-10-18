@@ -29,6 +29,14 @@ static void test_partial_writes_are_retried_until_complete() {
   TEST_ASSERT_EQUAL_STRING("$GPRMC,FRAME*00\r\n", transport.captured.c_str());
 }
 
+static void test_partial_writes_respect_total_deadline() {
+  ChunkedPrint transport;
+  transport.maxChunk = 1;
+
+  TEST_ASSERT_FALSE(writeComplete(transport, "AB", 0));
+  TEST_ASSERT_EQUAL_UINT32(1, transport.captured.length());
+}
+
 static void test_stalled_transport_times_out() {
   ChunkedPrint transport;
   transport.stall = true;
@@ -47,6 +55,7 @@ static void test_empty_frame_is_a_successful_noop() {
 void setup() {
   UNITY_BEGIN();
   RUN_TEST(test_partial_writes_are_retried_until_complete);
+  RUN_TEST(test_partial_writes_respect_total_deadline);
   RUN_TEST(test_stalled_transport_times_out);
   RUN_TEST(test_empty_frame_is_a_successful_noop);
   UNITY_END();
