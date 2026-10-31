@@ -112,6 +112,11 @@ jobs:
         working-directory: tools
         run: python -m unittest test_verify_capture_integrity.py
 
+      - name: Run transport writer host regression tests
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -Itools/transport_writer_test_shims -Isrc tools/test_transport_writer_host.cpp -o /tmp/test-transport-writer
+          /tmp/test-transport-writer
+
       - name: Compile embedded regression tests
         run: pio test -e esp32-s3-tests --without-uploading --without-testing --junit-output-path test-results.xml
 
