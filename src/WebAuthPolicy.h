@@ -15,4 +15,8 @@ inline bool validPassword(const String &password) {
 inline bool validEnabledCredentials(const String &username, const String &password) {
   return validUsername(username) && validPassword(password);
 }
+
+inline bool validOtaAuthentication(bool enabled, const String &username, const String &password) {
+  return enabled && validEnabledCredentials(username, password);
+}
 }
