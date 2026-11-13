@@ -6,6 +6,7 @@ class ChunkedPrint : public Print {
 public:
   size_t maxChunk = 0;
   bool stall = false;
+  uint32_t delayAfterChunkMs = 0;
   String captured;
 
   size_t write(uint8_t byte) override {
@@ -17,6 +18,7 @@ public:
     if (stall) return 0;
     const size_t count = maxChunk && size > maxChunk ? maxChunk : size;
     for (size_t i = 0; i < count; ++i) captured += static_cast<char>(buffer[i]);
+    if (count < size && delayAfterChunkMs > 0) delay(delayAfterChunkMs);
     return count;
   }
 };
@@ -27,6 +29,15 @@ static void test_partial_writes_are_retried_until_complete() {
 
   TEST_ASSERT_TRUE(writeComplete(transport, "$GPRMC,FRAME*00\r\n", 50));
   TEST_ASSERT_EQUAL_STRING("$GPRMC,FRAME*00\r\n", transport.captured.c_str());
+}
+
+static void test_partial_writes_respect_total_deadline() {
+  ChunkedPrint transport;
+  transport.maxChunk = 1;
+  transport.delayAfterChunkMs = 2;
+
+  TEST_ASSERT_FALSE(writeComplete(transport, "AB", 1));
+  TEST_ASSERT_EQUAL_UINT32(1, transport.captured.length());
 }
 
 static void test_stalled_transport_times_out() {
@@ -47,6 +58,7 @@ static void test_empty_frame_is_a_successful_noop() {
 void setup() {
   UNITY_BEGIN();
   RUN_TEST(test_partial_writes_are_retried_until_complete);
+  RUN_TEST(test_partial_writes_respect_total_deadline);
   RUN_TEST(test_stalled_transport_times_out);
   RUN_TEST(test_empty_frame_is_a_successful_noop);
   UNITY_END();

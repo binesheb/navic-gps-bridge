@@ -14,11 +14,23 @@ inline bool writeComplete(Print& transport, const String& frame, uint32_t timeou
   const uint32_t start = millis();
 
   while (offset < total) {
-    const size_t written = transport.write(data + offset, total - offset);
+    // A zero timeout intentionally rejects non-empty frames without writing.
+    if ((uint32_t)(millis() - start) >= timeoutMs) return false;
+
+    const size_t remaining = total - offset;
+    const size_t written = transport.write(data + offset, remaining);
+    // A broken transport implementation must not be allowed to advance past
+    // the end of the frame.
+    if (written > remaining) return false;
+
     if (written > 0) {
       offset += written;
+      // Check even after the final write: a blocking write can return after
+      // the total deadline, in which case the frame is not considered valid.
+      if ((uint32_t)(millis() - start) >= timeoutMs) return false;
       continue;
     }
+
     if ((uint32_t)(millis() - start) >= timeoutMs) return false;
     yield();
   }
