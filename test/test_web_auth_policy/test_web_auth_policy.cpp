@@ -18,13 +18,3 @@ void test_enabled_credentials_require_both() {
   TEST_ASSERT_FALSE(WebAuthPolicy::validEnabledCredentials(String("admin"), String("short")));
   TEST_ASSERT_TRUE(WebAuthPolicy::validEnabledCredentials(String("admin"), String("NavIC-strong-pass")));
 }
-
-void setup() {
-  UNITY_BEGIN();
-  RUN_TEST(test_username_validation);
-  RUN_TEST(test_password_validation);
-  RUN_TEST(test_enabled_credentials_require_both);
-  UNITY_END();
-}
-
-void loop() {}
